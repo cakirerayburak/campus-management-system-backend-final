@@ -1,4 +1,4 @@
-const { User, Student, Faculty, sequelize} = require('../models');
+const { User, Student, Faculty, sequelize } = require('../models');
 const { generateTokens } = require('../utils/jwtHelper');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -7,6 +7,7 @@ const sendEmail = require('../utils/emailService');
 const ErrorResponse = require('../utils/errorResponse');
 const asyncHandler = require('../middleware/async');
 const { ROLES, TOKEN_EXPIRATION } = require('../config/constants');
+const auditService = require('../services/auditService');
 
 // src/controllers/authController.js
 
@@ -70,6 +71,9 @@ exports.register = asyncHandler(async (req, res, next) => {
       // Production'da bu durumu loglama servisine bildirebilirsiniz
     }
 
+    // Audit log
+    await auditService.logCreate(newUser.id, 'User', newUser.id, { email, role }, req, 'Yeni kullanıcı kaydı');
+
     res.status(201).json({
       success: true,
       message: 'Kayıt başarılı. Lütfen e-postanızı kontrol edin.'
@@ -78,15 +82,15 @@ exports.register = asyncHandler(async (req, res, next) => {
   } catch (err) {
     // Hata varsa yapılan TÜM işlemleri geri al (User silinir)
     await t.rollback();
-    
+
     // Hata logunu bas
     console.error("Register Hatası:", err);
-    
+
     // Özel hata mesajı döndür
     if (err.name === 'SequelizeUniqueConstraintError') {
       return next(new ErrorResponse('Bu e-posta veya numara zaten kayıtlı.', 400));
     }
-    
+
     return next(new ErrorResponse('Kayıt işlemi başarısız: ' + err.message, 500));
   }
 });
@@ -139,20 +143,33 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   const user = await User.findOne({ where: { email } });
   if (!user) {
+    // Audit log - kullanıcı bulunamadı
+    await auditService.logAction(null, 'login_failed', 'Kullanıcı bulunamadı', req, {
+      metadata: { email, reason: 'user_not_found' }
+    });
     return next(new ErrorResponse('Geçersiz kimlik bilgileri.', 401));
   }
 
   // YENİ EKLENEN KONTROL: Hesap doğrulanmış mı?
   if (!user.is_verified) {
+    // Audit log - hesap doğrulanmamış
+    await auditService.logAction(user.id, 'login_failed', 'Hesap doğrulanmamış', req, {
+      metadata: { email, reason: 'not_verified' }
+    });
     return next(new ErrorResponse('Lütfen önce e-posta adresinizi doğrulayın.', 401));
   }
 
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) {
+    // Audit log - yanlış şifre
+    await auditService.logLogin(user.id, req, false);
     return next(new ErrorResponse('Geçersiz kimlik bilgileri.', 401));
   }
 
   const tokens = generateTokens(user);
+
+  // Audit log - başarılı giriş
+  await auditService.logLogin(user.id, req, true);
 
   res.status(200).json({
     success: true,
@@ -171,7 +188,7 @@ exports.refresh = asyncHandler(async (req, res, next) => {
   try {
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    
+
     const user = await User.findByPk(decoded.id);
     if (!user) {
       return next(new ErrorResponse('Kullanıcı bulunamadı.', 401));
@@ -196,6 +213,11 @@ exports.refresh = asyncHandler(async (req, res, next) => {
 
 // POST /api/v1/auth/logout
 exports.logout = asyncHandler(async (req, res, next) => {
+  // Audit log
+  if (req.user) {
+    await auditService.logLogout(req.user.id, req);
+  }
+
   res.status(200).json({
     success: true,
     message: 'Başarıyla çıkış yapıldı.'
@@ -255,8 +277,11 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   user.password_hash = req.body.password; // Hook hash'leyecek
   user.reset_password_token = null;
   user.reset_password_expire = null;
-  
+
   await user.save();
+
+  // Audit log
+  await auditService.logAction(user.id, 'password_reset', 'Şifre sıfırlandı', req);
 
   res.status(200).json({ success: true, message: 'Şifre başarıyla güncellendi. Giriş yapabilirsiniz.' });
 });

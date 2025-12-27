@@ -1,7 +1,7 @@
 const fs = require('fs');
 const colors = require('colors');
 const dotenv = require('dotenv');
-const db = require('./src/models'); 
+const db = require('./src/models');
 
 // Çevre değişkenlerini yükle
 dotenv.config({ path: './src/config/config.env' });
@@ -24,6 +24,11 @@ const MealMenu = db.MealMenu;
 const Event = db.Event;
 const Schedule = db.Schedule;
 
+// --- PART 4 MODELLERİ ---
+const Notification = db.Notification;
+const NotificationPreference = db.NotificationPreference;
+const AuditLog = db.AuditLog;
+
 // SEED FONKSİYONU
 const seedData = async () => {
   try {
@@ -34,56 +39,56 @@ const seedData = async () => {
     // -----------------------------------------------------------------------
     // 2. BÖLÜMLER (DEPARTMENTS)
     // -----------------------------------------------------------------------
-    const deptComputer = await Department.create({ 
-      name: 'Bilgisayar Mühendisliği', 
+    const deptComputer = await Department.create({
+      name: 'Bilgisayar Mühendisliği',
       code: 'CENG',
       faculty_name: 'Mühendislik Fakültesi'
     });
-    
-    const deptElectrical = await Department.create({ 
-      name: 'Elektrik-Elektronik Müh.', 
+
+    const deptElectrical = await Department.create({
+      name: 'Elektrik-Elektronik Müh.',
       code: 'EEE',
       faculty_name: 'Mühendislik Fakültesi'
     });
-    
-    const deptArchitecture = await Department.create({ 
-      name: 'Mimarlık', 
+
+    const deptArchitecture = await Department.create({
+      name: 'Mimarlık',
       code: 'ARCH',
       faculty_name: 'Mimarlık ve Tasarım Fakültesi'
     });
-    
+
     console.log('Bölümler eklendi...'.green);
 
     // -----------------------------------------------------------------------
     // 3. DERSLİKLER (CLASSROOMS)
     // -----------------------------------------------------------------------
-    const room101 = await Classroom.create({ 
+    const room101 = await Classroom.create({
       code: 'MB-101', // Kod eklendi
-      building: 'Mühendislik A Blok', 
-      room_number: '101', 
-      capacity: 60, 
+      building: 'Mühendislik A Blok',
+      room_number: '101',
+      capacity: 60,
       type: 'classroom',
-      latitude: 41.0255, 
+      latitude: 41.0255,
       longitude: 40.5201
     });
 
-    const labComp = await Classroom.create({ 
+    const labComp = await Classroom.create({
       code: 'MB-LAB1',
-      building: 'Mühendislik B Blok', 
-      room_number: 'LAB-1', 
-      capacity: 30, 
+      building: 'Mühendislik B Blok',
+      room_number: 'LAB-1',
+      capacity: 30,
       type: 'lab',
-      latitude: 41.0258, 
+      latitude: 41.0258,
       longitude: 40.5205
     });
 
-    const roomArch = await Classroom.create({ 
+    const roomArch = await Classroom.create({
       code: 'MF-Z10',
-      building: 'Mimarlık Fakültesi', 
-      room_number: 'Z-10', 
-      capacity: 45, 
+      building: 'Mimarlık Fakültesi',
+      room_number: 'Z-10',
+      capacity: 45,
       type: 'studio',
-      latitude: 41.0260, 
+      latitude: 41.0260,
       longitude: 40.5210
     });
     console.log('Derslikler eklendi...'.green);
@@ -91,7 +96,7 @@ const seedData = async () => {
     // -----------------------------------------------------------------------
     // 4. KULLANICILAR (ADMIN, HOCA, ÖĞRENCİ)
     // -----------------------------------------------------------------------
-    
+
     // --- Admin ---
     await User.create({
       name: 'Sistem Yöneticisi',
@@ -169,7 +174,7 @@ const seedData = async () => {
     // -----------------------------------------------------------------------
     // 5. DERSLER (COURSES)
     // -----------------------------------------------------------------------
-    
+
     const courseAlgo = await Course.create({
       code: 'CENG101',
       name: 'Algoritma ve Programlamaya Giriş',
@@ -216,7 +221,7 @@ const seedData = async () => {
       enrolled_count: 0,
       schedule_json: { day: 'Monday', start: '09:00', room: 'MB-LAB1' } // Frontend için özet
     });
-    
+
     // CENG101 İçin Schedule Tablosuna Kayıt (Takvimde görünmesi için)
     await Schedule.create({
       section_id: section1.id,
@@ -238,7 +243,7 @@ const seedData = async () => {
       enrolled_count: 0,
       schedule_json: { day: 'Wednesday', start: '13:00', room: 'MB-101' }
     });
-    
+
     await Schedule.create({
       section_id: section2.id,
       classroom_id: room101.id,
@@ -273,7 +278,7 @@ const seedData = async () => {
     // -----------------------------------------------------------------------
     // 7. DUYURULAR
     // -----------------------------------------------------------------------
-    
+
     await Announcement.create({
       title: '2025 Bahar Dönemi Başlıyor',
       content: 'Tüm öğrencilerimize yeni dönemde başarılar dileriz. Ders kayıtları açılmıştır.',
@@ -347,7 +352,7 @@ const seedData = async () => {
     // -----------------------------------------------------------------------
     // 10. ETKİNLİKLER - PART 3
     // -----------------------------------------------------------------------
-    
+
     // Gelecek bir tarih
     const eventDate = new Date();
     eventDate.setDate(eventDate.getDate() + 10); // 10 gün sonra
@@ -378,36 +383,157 @@ const seedData = async () => {
     });
 
     console.log('Etkinlikler eklendi...'.green);
-    
+
     // -----------------------------------------------------------------------
     // 11. TEST İÇİN HAZIR KAYIT (ENROLLMENT)
     // -----------------------------------------------------------------------
     const sectionCeng101 = await CourseSection.findOne({ where: { courseId: courseAlgo.id } });
-    
-    if(sectionCeng101) {
-        await Enrollment.create({
-            studentId: student1.id,
-            sectionId: sectionCeng101.id,
-            status: 'passed',
-            midterm_grade: 80,
-            final_grade: 90,
-            letter_grade: 'AA',
-            grade_point: 4.0
-        });
-        
-        await sectionCeng101.increment('enrolled_count');
-        console.log('Ali CENG101 dersine kaydedildi ve AA ile geçti.'.yellow);
+
+    if (sectionCeng101) {
+      await Enrollment.create({
+        studentId: student1.id,
+        sectionId: sectionCeng101.id,
+        status: 'passed',
+        midterm_grade: 80,
+        final_grade: 90,
+        letter_grade: 'AA',
+        grade_point: 4.0
+      });
+
+      await sectionCeng101.increment('enrolled_count');
+      console.log('Ali CENG101 dersine kaydedildi ve AA ile geçti.'.yellow);
     }
 
     // Ali'nin aktif aldığı ders (CENG102)
     const sectionCeng102 = await CourseSection.findOne({ where: { courseId: courseData.id } });
-    if(sectionCeng102) {
-        await Enrollment.create({
-            studentId: student1.id,
-            sectionId: sectionCeng102.id,
-            status: 'enrolled'
-        });
-        await sectionCeng102.increment('enrolled_count');
+    if (sectionCeng102) {
+      await Enrollment.create({
+        studentId: student1.id,
+        sectionId: sectionCeng102.id,
+        status: 'enrolled'
+      });
+      await sectionCeng102.increment('enrolled_count');
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. BİLDİRİM TERCİHLERİ (NOTIFICATION PREFERENCES) - PART 4
+    // -----------------------------------------------------------------------
+    if (NotificationPreference) {
+      await NotificationPreference.create({
+        user_id: userStu1.id,
+        email_academic: true,
+        email_attendance: true,
+        email_meal: false,
+        email_event: true,
+        email_payment: true,
+        email_system: true,
+        push_academic: true,
+        push_attendance: true,
+        push_meal: true,
+        push_event: true,
+        push_payment: true,
+        push_system: true
+      });
+
+      await NotificationPreference.create({
+        user_id: userStu2.id
+      });
+
+      console.log('Bildirim tercihleri eklendi...'.green);
+    }
+
+    // -----------------------------------------------------------------------
+    // 13. ÖRNEK BİLDİRİMLER (NOTIFICATIONS) - PART 4
+    // -----------------------------------------------------------------------
+    if (Notification) {
+      await Notification.create({
+        user_id: userStu1.id,
+        title: 'Derse Hoşgeldiniz',
+        message: 'CENG102 - Veri Yapıları dersine kaydınız başarıyla tamamlandı.',
+        category: 'academic',
+        type: 'success',
+        link: '/my-courses',
+        is_read: false
+      });
+
+      await Notification.create({
+        user_id: userStu1.id,
+        title: 'Yeni Etkinlik',
+        message: 'Bahar Teknoloji Şenliği 10 gün sonra başlıyor!',
+        category: 'event',
+        type: 'info',
+        link: '/events',
+        is_read: false
+      });
+
+      await Notification.create({
+        user_id: userStu1.id,
+        title: 'Cüzdan Bakiyesi',
+        message: 'Cüzdan bakiyeniz 500 TL olarak güncellendi.',
+        category: 'payment',
+        type: 'success',
+        link: '/wallet',
+        is_read: true
+      });
+
+      await Notification.create({
+        user_id: userStu2.id,
+        title: 'Burs Ödemesi',
+        message: 'Aylık burs ödemesi hesabınıza yatırıldı.',
+        category: 'payment',
+        type: 'success',
+        link: '/wallet',
+        is_read: false
+      });
+
+      await Notification.create({
+        user_id: userFac1.id,
+        title: 'Yeni Öğrenci Kayıtları',
+        message: 'CENG102 dersine 1 yeni öğrenci kaydoldu.',
+        category: 'academic',
+        type: 'info',
+        link: '/attendance/reports',
+        is_read: false
+      });
+
+      console.log('Örnek bildirimler eklendi...'.green);
+    }
+
+    // -----------------------------------------------------------------------
+    // 14. AUDIT LOG KAYITLARI - PART 4
+    // -----------------------------------------------------------------------
+    if (AuditLog) {
+      await AuditLog.create({
+        user_id: userStu1.id,
+        action: 'login_success',
+        description: 'Kullanıcı başarıyla giriş yaptı',
+        ip_address: '192.168.1.100',
+        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+      });
+
+      await AuditLog.create({
+        user_id: userStu1.id,
+        action: 'create',
+        entity_type: 'Enrollment',
+        description: 'CENG102 dersine kayıt oluşturuldu',
+        ip_address: '192.168.1.100'
+      });
+
+      await AuditLog.create({
+        user_id: userFac1.id,
+        action: 'login_success',
+        description: 'Akademisyen giriş yaptı',
+        ip_address: '192.168.1.150'
+      });
+
+      await AuditLog.create({
+        action: 'login_failed',
+        description: 'Başarısız giriş denemesi - geçersiz şifre',
+        ip_address: '192.168.1.200',
+        metadata: { email: 'hacker@example.com' }
+      });
+
+      console.log('Audit log kayıtları eklendi...'.green);
     }
 
     console.log('-------------------------------------------'.white);
