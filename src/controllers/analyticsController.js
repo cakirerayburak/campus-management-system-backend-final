@@ -202,7 +202,7 @@ exports.getEventStats = asyncHandler(async (req, res, next) => {
         include: [{
             model: db.EventRegistration,
             as: 'registrations',
-            attributes: ['id', 'attended']
+            attributes: ['id', 'checked_in']
         }],
         limit: 10,
         order: [['date', 'DESC']]
@@ -213,7 +213,7 @@ exports.getEventStats = asyncHandler(async (req, res, next) => {
         title: event.title,
         capacity: event.capacity,
         registered: event.registrations?.length || 0,
-        attended: event.registrations?.filter(r => r.attended).length || 0,
+        attended: event.registrations?.filter(r => r.checked_in).length || 0,
         fillRate: event.capacity ? ((event.registrations?.length || 0) / event.capacity * 100).toFixed(1) : 0
     }));
 

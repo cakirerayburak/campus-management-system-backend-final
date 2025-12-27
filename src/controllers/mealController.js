@@ -29,11 +29,11 @@ exports.getMenuDetail = async (req, res) => {
     const menu = await MealMenu.findByPk(id, {
       include: [{ model: Cafeteria }]
     });
-    
+
     if (!menu) {
       return res.status(404).json({ success: false, message: 'Menü bulunamadı' });
     }
-    
+
     res.json({ success: true, data: menu });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -54,6 +54,23 @@ exports.createReservation = async (req, res) => {
     const menu = await MealMenu.findByPk(menuId);
     if (!menu) throw new Error('Menü bulunamadı');
 
+    // Rezervasyon son saati kontrolü
+    // Öğle: 12:00, Akşam: 18:00 - En geç 30 dakika öncesine kadar rezervasyon yapılabilir
+    const mealStartTime = menu.meal_type === 'lunch' ? '11:30' : '17:00';
+    const mealDateTime = moment(`${menu.date} ${mealStartTime}`, 'YYYY-MM-DD HH:mm');
+    const now = moment();
+
+    // Geçmiş tarih kontrolü
+    if (mealDateTime.isBefore(now)) {
+      throw new Error('Bu öğün için rezervasyon süresi dolmuştur.');
+    }
+
+    // En az 30 dakika önce rezervasyon yapılmalı
+    const minutesUntilMeal = mealDateTime.diff(now, 'minutes');
+    if (minutesUntilMeal < 30) {
+      throw new Error('Rezervasyon en geç yemek saatinden 30 dakika önce yapılmalıdır.');
+    }
+
     // Mükerrer kontrolü
     const existing = await MealReservation.findOne({
       where: { user_id: userId, menu_id: menuId, status: { [Op.not]: 'cancelled' } }
@@ -61,13 +78,13 @@ exports.createReservation = async (req, res) => {
     if (existing) throw new Error('Bu öğün için zaten işleminiz var.');
 
     let wallet;
-    
+
     if (isScholarship) {
       // BURSLU ÖĞRENCİ MANTIĞI
       // O gün için kaç rezervasyonu var? (Max 2)
       const dailyCount = await MealReservation.count({
-        where: { 
-          user_id: userId, 
+        where: {
+          user_id: userId,
           reservation_date: menu.date,
           status: { [Op.not]: 'cancelled' }
         }
@@ -112,7 +129,7 @@ exports.createReservation = async (req, res) => {
         reference_id: reservation.id,
         reference_type: 'meal_reservation'
       }, { transaction: t });
-      
+
       // Bakiye kontrolü yap ama henüz düşme (kullanımda düşecek)
       if (parseFloat(wallet.balance) < parseFloat(menu.price)) {
         throw new Error('Yetersiz bakiye');
@@ -131,8 +148,8 @@ exports.createReservation = async (req, res) => {
       console.error('Email gönderim hatası:', emailError);
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       data: {
         ...reservation.toJSON(),
         qrCode // QR görseli frontend'e gönder
@@ -161,7 +178,7 @@ exports.cancelReservation = async (req, res) => {
     const mealDateTime = moment(`${reservation.reservation_date} ${reservation.meal_type === 'lunch' ? '12:00' : '18:00'}`);
     const now = moment();
     const hoursUntilMeal = mealDateTime.diff(now, 'hours', true);
-    
+
     if (hoursUntilMeal < 2) {
       throw new Error('Rezervasyonu iptal etmek için yemek saatinden en az 2 saat önce iptal etmelisiniz.');
     }
@@ -187,7 +204,7 @@ exports.cancelReservation = async (req, res) => {
         if (wallet && parseFloat(reservation.amount) > 0) {
           const newBalance = parseFloat(wallet.balance) + parseFloat(reservation.amount);
           await wallet.update({ balance: newBalance }, { transaction: t });
-          
+
           await Transaction.create({
             wallet_id: wallet.id,
             type: 'refund',
@@ -239,7 +256,7 @@ exports.useReservation = async (req, res) => {
       if (!qrCode) {
         return res.status(400).json({ success: false, message: 'QR kod gerekli.' });
       }
-      
+
       // QR kod parse et
       let qrData;
       try {
@@ -252,14 +269,14 @@ exports.useReservation = async (req, res) => {
       // QR kod formatı: {"u":"userId","m":"menuId","r":"token","type":"meal"}
       // Token'ı bul: önce r, sonra token, son olarak direkt qrCode
       const qrToken = qrData.r || qrData.token || qrCode;
-      
+
       console.log('QR kod parse edildi:', { qrData, qrToken }); // Debug için
 
       // Rezervasyonu bul (QR token ile)
       reservation = await MealReservation.findOne({
-        where: { 
+        where: {
           qr_code: qrToken,
-          status: 'reserved' 
+          status: 'reserved'
         },
         include: [
           { model: MealMenu },
@@ -267,7 +284,7 @@ exports.useReservation = async (req, res) => {
         ],
         transaction: t
       });
-      
+
       if (!reservation) {
         console.log('Rezervasyon bulunamadı. Token:', qrToken, 'QR Code:', qrCode); // Debug için
       }
@@ -290,9 +307,33 @@ exports.useReservation = async (req, res) => {
     // Tarih kontrolü: Bugün mü?
     const today = new Date().toISOString().split('T')[0];
     if (reservation.reservation_date !== today) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Rezervasyon bugüne ait değil. Rezervasyon tarihi: ${reservation.reservation_date}` 
+      return res.status(400).json({
+        success: false,
+        message: `Rezervasyon bugüne ait değil. Rezervasyon tarihi: ${reservation.reservation_date}`
+      });
+    }
+
+    // Öğün saati kontrolü: QR sadece yemek saatlerinde okutulabilir
+    const currentHour = moment().hour();
+    const currentMinute = moment().minute();
+    const currentTimeMinutes = currentHour * 60 + currentMinute;
+
+    // Öğle: 11:30 - 14:30 (690 - 870 dakika)
+    // Akşam: 17:00 - 20:30 (1020 - 1230 dakika)
+    const mealType = reservation.meal_type;
+    let validTimeRange;
+
+    if (mealType === 'lunch') {
+      validTimeRange = { start: 11 * 60 + 30, end: 14 * 60 + 30, label: '11:30 - 14:30' };
+    } else {
+      validTimeRange = { start: 17 * 60, end: 20 * 60 + 30, label: '17:00 - 20:30' };
+    }
+
+    if (currentTimeMinutes < validTimeRange.start || currentTimeMinutes > validTimeRange.end) {
+      const mealLabel = mealType === 'lunch' ? 'Öğle yemeği' : 'Akşam yemeği';
+      return res.status(400).json({
+        success: false,
+        message: `${mealLabel} QR kodu sadece ${validTimeRange.label} saatleri arasında okutulabilir.`
       });
     }
 
@@ -302,13 +343,13 @@ exports.useReservation = async (req, res) => {
     }
 
     // Kullanımı işaretle
-    await reservation.update({ 
-      status: 'used', 
-      used_at: new Date() 
+    await reservation.update({
+      status: 'used',
+      used_at: new Date()
     }, { transaction: t });
 
     // Eğer ücretli öğrenciyse, pending transaction'ı tamamla ve bakiyeden düş
-    const student = await Student.findOne({ 
+    const student = await Student.findOne({
       where: { userId: reservation.user_id },
       transaction: t
     });
@@ -327,13 +368,13 @@ exports.useReservation = async (req, res) => {
 
       if (pendingTransaction && parseFloat(reservation.amount) > 0) {
         // Wallet'ı bul veya oluştur
-        let wallet = await Wallet.findOne({ 
+        let wallet = await Wallet.findOne({
           where: { user_id: reservation.user_id },
           transaction: t
         });
 
         if (!wallet) {
-          wallet = await Wallet.create({ 
+          wallet = await Wallet.create({
             user_id: reservation.user_id,
             balance: 0
           }, { transaction: t });
@@ -342,14 +383,14 @@ exports.useReservation = async (req, res) => {
         const currentBalance = parseFloat(wallet.balance);
         const amountToDeduct = parseFloat(reservation.amount);
         const newBalance = currentBalance - amountToDeduct;
-        
+
         if (newBalance < 0) {
           throw new Error('Yetersiz bakiye (kullanım sırasında)');
         }
 
         // Bakiye güncelle
         await wallet.update({ balance: newBalance }, { transaction: t });
-        
+
         // Pending transaction'ı payment'a çevir (ödeme tamamlandı)
         await pendingTransaction.update({
           type: 'payment',
@@ -361,14 +402,14 @@ exports.useReservation = async (req, res) => {
       } else if (!pendingTransaction && parseFloat(reservation.amount) > 0) {
         // Pending transaction yoksa ama ücretli ise, direkt düş (eski rezervasyonlar için)
         console.warn(`Pending transaction bulunamadı rezervasyon ID: ${reservation.id}, direkt ödeme alınıyor.`);
-        
-        let wallet = await Wallet.findOne({ 
+
+        let wallet = await Wallet.findOne({
           where: { user_id: reservation.user_id },
           transaction: t
         });
 
         if (!wallet) {
-          wallet = await Wallet.create({ 
+          wallet = await Wallet.create({
             user_id: reservation.user_id,
             balance: 0
           }, { transaction: t });
@@ -377,13 +418,13 @@ exports.useReservation = async (req, res) => {
         const currentBalance = parseFloat(wallet.balance);
         const amountToDeduct = parseFloat(reservation.amount);
         const newBalance = currentBalance - amountToDeduct;
-        
+
         if (newBalance < 0) {
           throw new Error('Yetersiz bakiye');
         }
 
         await wallet.update({ balance: newBalance }, { transaction: t });
-        
+
         // Yeni transaction kaydı oluştur
         await Transaction.create({
           wallet_id: wallet.id,
@@ -399,8 +440,8 @@ exports.useReservation = async (req, res) => {
 
     await t.commit();
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Afiyet olsun!',
       data: {
         user: reservation.User,
@@ -469,7 +510,7 @@ exports.getMyReservations = async (req, res) => {
     const reservations = await MealReservation.findAll({
       where: { user_id: req.user.id },
       include: [
-        { 
+        {
           model: MealMenu,
           include: [{ model: Cafeteria }]
         }
@@ -481,7 +522,7 @@ exports.getMyReservations = async (req, res) => {
     const reservationsWithQR = await Promise.all(
       reservations.map(async (reservation) => {
         const reservationData = reservation.toJSON();
-        
+
         // QR kod verisini oluştur (JSON string)
         const qrData = {
           u: reservation.user_id,
@@ -489,7 +530,7 @@ exports.getMyReservations = async (req, res) => {
           r: reservation.qr_code,
           type: 'meal'
         };
-        
+
         // QR kod görseli oluştur (base64)
         try {
           const qrCodeImage = await qrCodeService.generateQRCode(qrData);
@@ -498,7 +539,7 @@ exports.getMyReservations = async (req, res) => {
           console.error('QR kod oluşturma hatası:', qrError);
           // QR kod oluşturulamazsa devam et
         }
-        
+
         return reservationData;
       })
     );
