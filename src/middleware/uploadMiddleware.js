@@ -11,11 +11,7 @@ cloudinary.config({
 
 // Custom Storage Engine for Cloudinary v2
 const cloudinaryStorage = {
-  _handleFile: async (req, file, cb) => {
-    const stream = new Readable();
-    stream.push(file.buffer);
-    stream.push(null);
-
+  _handleFile: (req, file, cb) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'kampus-profil-fotolari',
@@ -27,26 +23,28 @@ const cloudinaryStorage = {
           return cb(error);
         }
         cb(null, {
+          path: result.secure_url, // Controller req.file.path olarak beklediği için
           url: result.secure_url,
           public_id: result.public_id,
-          ...result,
+          size: result.bytes,
+          filename: result.public_id
         });
       }
     );
 
-    stream.pipe(uploadStream);
+    // file.stream'i Cloudinary'ye pipe et
+    file.stream.pipe(uploadStream);
   },
   _removeFile: (req, file, cb) => {
-    // Cloudinary'den silme işlemi (isteğe bağlı)
-    if (file.public_id) {
-      cloudinary.uploader.destroy(file.public_id, cb);
+    if (file.public_id || file.filename) {
+      cloudinary.uploader.destroy(file.public_id || file.filename, cb);
     } else {
       cb(null);
     }
   },
 };
 
-const upload = multer({ 
+const upload = multer({
   storage: cloudinaryStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
