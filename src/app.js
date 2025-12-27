@@ -1,6 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const { sequelize } = require('./models'); 
+const { sequelize } = require('./models');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cors = require('cors');
@@ -94,9 +94,9 @@ const startServer = async () => {
 
     // Test ortamında sync işlemi test dosyalarında yapılıyor
     if (process.env.NODE_ENV !== 'test') {
-      await sequelize.sync({ alter: true });
+      await sequelize.sync();
       console.log('Tablolar senkronize edildi.');
-      
+
       app.listen(PORT, () => {
         logger.info(`Sunucu ${process.env.NODE_ENV} modunda ${PORT} portunda çalışıyor.`);
       });
