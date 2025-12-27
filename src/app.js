@@ -26,6 +26,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const equipmentRoutes = require('./routes/equipmentRoutes');
 const systemRoutes = require('./routes/systemRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 dotenv.config();
 
@@ -80,6 +81,7 @@ app.use('/api/v1/scheduling', scheduleRoutes);
 app.use('/api/v1/reservations', require('./routes/reservationRoutes')); // Part 3: Classroom reservations
 app.use('/api/v1/equipment', equipmentRoutes);
 app.use('/api/v1/system', systemRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
