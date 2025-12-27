@@ -111,7 +111,7 @@ exports.createReservation = async (req, res) => {
       cafeteria_id: menu.cafeteria_id,
       reservation_date: menu.date,
       meal_type: menu.meal_type,
-      amount: parseFloat(menu.price),
+      amount: isScholarship ? 0 : parseFloat(menu.price),
       qr_code: qrToken, // Token kaydediyoruz (QR görseli frontend'de oluşturulacak)
       status: 'reserved'
     }, { transaction: t });

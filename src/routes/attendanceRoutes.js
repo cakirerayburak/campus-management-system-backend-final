@@ -9,6 +9,7 @@ router.use(protect);
 router.post('/sessions', authorize('faculty', 'admin'), attendanceController.startSession);
 router.get('/sessions/:id', attendanceController.getSession);
 router.put('/sessions/:id/close', authorize('faculty', 'admin'), attendanceController.closeSession);
+router.put('/sessions/:id/refresh-qr', authorize('faculty', 'admin'), attendanceController.refreshQrCode);
 
 // Yoklama Verme (Öğrenci)
 router.post('/sessions/:id/checkin', authorize('student'), attendanceController.checkIn);
@@ -18,23 +19,23 @@ router.get('/missed-sessions', authorize('student'), attendanceController.getMis
 // Raporlama (Hoca)
 router.get('/report/:sectionId', authorize('faculty', 'admin'), attendanceController.getAttendanceReport);
 router.post(
-  '/excuse-requests', 
-  authorize('student'), 
-  upload.single('document'), 
+  '/excuse-requests',
+  authorize('student'),
+  upload.single('document'),
   attendanceController.createExcuseRequest
 );
 
 // Listeleme (Öğrenci kendi, Hoca dersindekileri)
 router.get(
-  '/excuse-requests', 
-  authorize('student', 'faculty', 'admin'), 
+  '/excuse-requests',
+  authorize('student', 'faculty', 'admin'),
   attendanceController.getExcuseRequests
 );
 
 // Onaylama/Reddetme (Hoca)
 router.put(
-  '/excuse-requests/:id', 
-  authorize('faculty', 'admin'), 
+  '/excuse-requests/:id',
+  authorize('faculty', 'admin'),
   attendanceController.updateExcuseStatus
 );
 

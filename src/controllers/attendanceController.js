@@ -11,14 +11,14 @@ const { calculateDistance } = require('../utils/geoUtils');
 const crypto = require('crypto');
 const CAMPUS_IPS = require('../config/campusIPs');
 const checkIp = require('ip-range-check');
-const { Op } = require('sequelize'); 
+const { Op } = require('sequelize');
 
 // @desc    Yoklama Oturumu Başlat (Hoca veya Admin)
 // @route   POST /api/v1/attendance/sessions
 // @access  Faculty, Admin
 exports.startSession = asyncHandler(async (req, res, next) => {
   const { sectionId, geofence_radius, duration_minutes, latitude, longitude } = req.body;
-  
+
   // 1. Koordinat Kontrolü
   if (!latitude || !longitude) {
     return next(new ErrorResponse('Konum bilgisi eksik. Lütfen GPS izni verin.', 400));
@@ -112,19 +112,29 @@ exports.checkIn = asyncHandler(async (req, res, next) => {
   let isFlagged = false;
   let flagReasons = [];
 
+  // D) QR KOD KONTROLÜ (YENİ - 5 Saniyelik Rotasyon)
+  // Request body'den gelen qr_code ile session'daki eşleşmeli
+  const { qr_code } = req.body;
+  if (!qr_code) {
+    return next(new ErrorResponse('QR Kod bilgisi eksik.', 400));
+  }
+  if (qr_code !== session.qr_code) {
+    return next(new ErrorResponse('QR Kod geçersiz veya süresi dolmuş. Lütfen tekrar okutun.', 400));
+  }
+
   // A) MESAFE KONTROLÜ (Geofence)
   const distance = calculateDistance(
-    session.latitude, session.longitude, 
+    session.latitude, session.longitude,
     parseFloat(latitude), parseFloat(longitude)
   );
-  
+
   // Yarıçap + 20m GPS sapma toleransı
-  const allowedDistance = session.geofence_radius + 20; 
+  const allowedDistance = session.geofence_radius + 20;
 
   if (distance > allowedDistance) {
     isFlagged = true;
     flagReasons.push(`Konum Sınırı Aşıldı: ${Math.round(distance)}m (Limit: ${allowedDistance}m)`);
-    
+
     // Çok aşırı uzaksa (örn: 500m) direkt reddet
     if (distance > 500) {
       return next(new ErrorResponse(`Sınıftan çok uzaktasınız! (${Math.round(distance)}m)`, 400));
@@ -133,7 +143,7 @@ exports.checkIn = asyncHandler(async (req, res, next) => {
 
   // B) IP ADRESİ KONTROLÜ - GÜNCELLENEN KISIM
   let clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  
+
   // IPv6 prefix temizliği (::ffff:)
   // ip-range-check bazen bunu otomatik halleder ama temiz kalmasında fayda var
   if (clientIp && clientIp.includes('::ffff:')) {
@@ -144,8 +154,8 @@ exports.checkIn = asyncHandler(async (req, res, next) => {
   // checkIp fonksiyonu: clientIp adresi, CAMPUS_IPS listesindeki 
   // herhangi bir IP veya CIDR bloğu (örn: 79.123.128.0/17) içindeyse TRUE döner.
   if (!checkIp(clientIp, CAMPUS_IPS)) {
-     isFlagged = true;
-     flagReasons.push(`Kampüs Ağı Dışı IP: ${clientIp}`);
+    isFlagged = true;
+    flagReasons.push(`Kampüs Ağı Dışı IP: ${clientIp}`);
   }
 
   // C) HIZ (VELOCITY) KONTROLÜ - "Impossible Travel"
@@ -193,10 +203,43 @@ exports.checkIn = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: isFlagged 
-      ? 'Yoklama şüpheli olarak kaydedildi. Hoca onayına düştü.' 
+    message: isFlagged
+      ? 'Yoklama şüpheli olarak kaydedildi. Hoca onayına düştü.'
       : 'Yoklama başarıyla ve güvenli şekilde alındı.',
     data: record
+  });
+});
+
+// @desc    QR Kod Yenile (Hoca - 5 saniyede bir çağrılır)
+// @route   PUT /api/v1/attendance/sessions/:id/refresh-qr
+// @access  Faculty
+exports.refreshQrCode = asyncHandler(async (req, res, next) => {
+  const session = await AttendanceSession.findByPk(req.params.id);
+
+  if (!session) {
+    return next(new ErrorResponse('Oturum bulunamadı.', 404));
+  }
+
+  // Sadece oturumu açan hoca yenileyebilir
+  if (session.instructorId !== req.user.facultyProfile.id && req.user.role !== 'admin') {
+    return next(new ErrorResponse('Yetkisiz işlem.', 403));
+  }
+
+  if (session.status !== 'active') {
+    return next(new ErrorResponse('Oturum aktif değil.', 400));
+  }
+
+  // Yeni QR kod üret
+  const newQrCode = crypto.randomBytes(16).toString('hex');
+
+  session.qr_code = newQrCode;
+  await session.save();
+
+  res.status(200).json({
+    success: true,
+    data: {
+      qr_code: newQrCode
+    }
   });
 });
 
@@ -206,8 +249,8 @@ exports.checkIn = asyncHandler(async (req, res, next) => {
 exports.getSession = asyncHandler(async (req, res, next) => {
   const session = await AttendanceSession.findByPk(req.params.id, {
     include: [
-      { 
-        model: CourseSection, 
+      {
+        model: CourseSection,
         as: 'section',
         include: [{ model: db.Course, as: 'course', attributes: ['name', 'code'] }]
       }
@@ -237,10 +280,10 @@ exports.closeSession = asyncHandler(async (req, res, next) => {
 // @access  Student
 exports.getMyAttendance = asyncHandler(async (req, res, next) => {
   console.log("Controller çalıştı.");
-    console.log("Req Params:", req.params); // Boş {} olmalı
-    console.log("Req User ID:", req.user?.id); // Geçerli bir ID olmalı
+  console.log("Req Params:", req.params); // Boş {} olmalı
+  console.log("Req User ID:", req.user?.id); // Geçerli bir ID olmalı
   const student = await Student.findOne({ where: { userId: req.user.id } });
-  
+
   // 1. Öğrencinin kayıtlı olduğu dersleri (Enrollment) bul
   const enrollments = await Enrollment.findAll({
     where: { studentId: student.id, status: 'enrolled' },
@@ -255,13 +298,13 @@ exports.getMyAttendance = asyncHandler(async (req, res, next) => {
   const stats = await Promise.all(enrollments.map(async (enrollment) => {
     const sectionId = enrollment.sectionId;
 
-// A) Bu şube için açılmış toplam oturum sayısı
+    // A) Bu şube için açılmış toplam oturum sayısı
     // ÇÖZÜM: "cancelled olmayanlar" demek yerine, veritabanında VAR OLAN statüleri (active, closed) saydırıyoruz.
     const totalSessions = await AttendanceSession.count({
-      where: { 
-        sectionId, 
+      where: {
+        sectionId,
         status: ['active', 'closed'] // Sadece aktif ve kapanmış oturumları say
-      } 
+      }
     });
 
     // B) Öğrencinin bu şubedeki katılım sayısı
@@ -296,8 +339,8 @@ exports.getMyAttendance = asyncHandler(async (req, res, next) => {
     include: [{
       model: AttendanceSession,
       as: 'session',
-      include: [{ 
-        model: CourseSection, 
+      include: [{
+        model: CourseSection,
         as: 'section',
         include: [{ model: db.Course, as: 'course', attributes: ['code', 'name'] }]
       }]
@@ -306,8 +349,8 @@ exports.getMyAttendance = asyncHandler(async (req, res, next) => {
     limit: 20 // Son 20 hareketi gösterelim
   });
 
-  res.status(200).json({ 
-    success: true, 
+  res.status(200).json({
+    success: true,
     data: {
       stats,    // Ders bazlı özet (Yüzdeler burada)
       history   // Son hareketler listesi
@@ -327,10 +370,10 @@ exports.getAttendanceReport = asyncHandler(async (req, res, next) => {
     include: [{
       model: AttendanceRecord,
       as: 'records',
-      include: [{ 
-        model: Student, 
-        as: 'student', 
-        include: [{ model: db.User, as: 'user', attributes: ['name', 'email'] }] 
+      include: [{
+        model: Student,
+        as: 'student',
+        include: [{ model: db.User, as: 'user', attributes: ['name', 'email'] }]
       }]
     }]
   });
@@ -387,17 +430,17 @@ exports.createExcuseRequest = asyncHandler(async (req, res, next) => {
 // @access  Student, Faculty
 exports.getExcuseRequests = asyncHandler(async (req, res, next) => {
   let whereClause = {};
-  
+
   // Temel İlişkiler
   let includeOptions = [
-    { 
-      model: AttendanceSession, 
+    {
+      model: AttendanceSession,
       as: 'session',
-      include: [{ 
-          model: CourseSection, 
-          as: 'section', 
-          include: [{ model: db.Course, as: 'course', attributes: ['code', 'name'] }] 
-      }] 
+      include: [{
+        model: CourseSection,
+        as: 'section',
+        include: [{ model: db.Course, as: 'course', attributes: ['code', 'name'] }]
+      }]
     }
   ];
 
@@ -406,17 +449,17 @@ exports.getExcuseRequests = asyncHandler(async (req, res, next) => {
     const student = await Student.findOne({ where: { userId: req.user.id } });
     if (!student) return next(new ErrorResponse('Öğrenci profili bulunamadı.', 404));
     whereClause.studentId = student.id;
-  } 
+  }
   // B) HOCA İSE: Öğrenci detaylarını da getir
   else if (req.user.role === 'faculty') {
-    includeOptions.push({ 
-      model: Student, 
-      as: 'student', 
-      include: [{ 
-          model: db.User, 
-          as: 'user', 
-          attributes: ['name', 'email'] 
-      }] 
+    includeOptions.push({
+      model: Student,
+      as: 'student',
+      include: [{
+        model: db.User,
+        as: 'user',
+        attributes: ['name', 'email']
+      }]
     });
   }
 
@@ -436,16 +479,16 @@ exports.getExcuseRequests = asyncHandler(async (req, res, next) => {
     const faculty = await db.Faculty.findOne({ where: { userId: req.user.id } });
 
     if (!faculty) {
-        // Eğer veritabanında hoca kaydı yoksa boş liste dön veya hata ver
-        console.error("HATA: Bu User ID'ye bağlı Faculty profili yok:", req.user.id);
-        return res.status(200).json({ success: true, count: 0, data: [] });
+      // Eğer veritabanında hoca kaydı yoksa boş liste dön veya hata ver
+      console.error("HATA: Bu User ID'ye bağlı Faculty profili yok:", req.user.id);
+      return res.status(200).json({ success: true, count: 0, data: [] });
     }
 
     // 2. Filtrelemeyi artık güvenli şekilde yapabiliriz
     data = requests.filter(item => {
-        // Optional chaining (?.) ile null check yapıyoruz
-        const sectionInstructorId = item.session?.section?.instructorId;
-        return sectionInstructorId === faculty.id;
+      // Optional chaining (?.) ile null check yapıyoruz
+      const sectionInstructorId = item.session?.section?.instructorId;
+      return sectionInstructorId === faculty.id;
     });
   }
 
@@ -459,10 +502,10 @@ exports.updateExcuseStatus = asyncHandler(async (req, res, next) => {
 
   // Talebi bul
   const request = await db.ExcuseRequest.findByPk(id, {
-    include: [{ 
-        model: AttendanceSession, 
-        as: 'session', 
-        include: ['section'] 
+    include: [{
+      model: AttendanceSession,
+      as: 'session',
+      include: ['section']
     }]
   });
 
@@ -478,7 +521,7 @@ exports.updateExcuseStatus = asyncHandler(async (req, res, next) => {
   request.notes = notes;
   request.reviewedBy = req.user.facultyProfile.id;
   request.reviewed_at = new Date();
-  
+
   await request.save();
 
   // --- EKLEME: YOKLAMA KAYDINI GÜNCELLEME ---
@@ -514,8 +557,8 @@ exports.updateExcuseStatus = asyncHandler(async (req, res, next) => {
   }
   // ---------------------------------------------
 
-  res.status(200).json({ 
-    success: true, 
+  res.status(200).json({
+    success: true,
     data: request,
     message: status === 'approved' ? 'Mazeret onaylandı ve yoklama kaydı güncellendi.' : 'Mazeret reddedildi.'
   });
@@ -531,10 +574,10 @@ exports.manageAttendanceRecord = asyncHandler(async (req, res, next) => {
   const { action } = req.body; // 'approve' (onayla)
 
   const record = await AttendanceRecord.findByPk(id, {
-    include: [{ 
-      model: AttendanceSession, 
+    include: [{
+      model: AttendanceSession,
       as: 'session',
-      include: ['section'] 
+      include: ['section']
     }]
   });
 
