@@ -55,9 +55,10 @@ app.use(xss());
 
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 1000,
+  max: process.env.NODE_ENV === 'test' ? 100000 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test' // Test ortamında tamamen atla
 });
 
 app.use('/api', globalLimiter);

@@ -42,7 +42,7 @@ describe('Part 3: Meal Service Tests', () => {
     const student = await Student.create({
       userId: studentUser.id,
       student_number: `ST${Date.now()}`,
-      departmentId: (await db.Department.create({ name: 'Test Dept', code: 'TEST' })).id,
+      departmentId: (await db.Department.create({ name: 'Test Dept', code: 'TEST', faculty_name: 'Engineering' })).id,
       is_scholarship: false
     });
 
@@ -74,13 +74,13 @@ describe('Part 3: Meal Service Tests', () => {
     // Login yap ve token al
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: normalStudentData.email, password_hash: 'Password123' });
-    authToken = loginRes.body.data.accessToken;
+      .send({ email: normalStudentData.email, password: 'Password123' });
+    authToken = loginRes.body.data?.accessToken;
 
     const staffLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: staffUser.email, password_hash: 'Password123' });
-    staffToken = staffLoginRes.body.data.accessToken;
+      .send({ email: staffUser.email, password: 'Password123' });
+    staffToken = staffLoginRes.body.data?.accessToken;
 
     // Menü oluştur
     menu = await MealMenu.create({
@@ -143,11 +143,11 @@ describe('Part 3: Meal Service Tests', () => {
     beforeAll(async () => {
       const loginRes = await request(app)
         .post('/api/v1/auth/login')
-        .send({ 
-          email: scholarshipStudent.userId ? 
-            (await User.findByPk(scholarshipStudent.userId)).email : 
-            `scholarship${Date.now()}@test.com`, 
-          password_hash: 'Password123' 
+        .send({
+          email: scholarshipStudent.userId ?
+            (await User.findByPk(scholarshipStudent.userId)).email :
+            `scholarship${Date.now()}@test.com`,
+          password_hash: 'Password123'
         });
       scholarshipToken = loginRes.body.data?.accessToken;
     });
@@ -320,7 +320,7 @@ describe('Part 3: Meal Service Tests', () => {
         .post('/api/v1/meals/reservations')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ menuId });
-      
+
       reservationId = res.body.data.id;
       qrCode = res.body.data.qr_code;
     });

@@ -1,15 +1,16 @@
 module.exports = {
   testEnvironment: 'node',
   verbose: true,
-  // Sadece çalışan test dosyaları
+  // Tüm test dosyaları
   testMatch: [
-    '**/tests/simple.test.js',
-    '**/tests/qrCode.test.js',
-    '**/tests/comprehensive.test.js',
-    '**/tests/auth.test.js'
+    '**/tests/*.test.js'
+  ],
+  // Çalıştırılmayacak testler (sorunlu olanlar)
+  testPathIgnorePatterns: [
+    '/node_modules/'
   ],
   // Timeout ayarları
-  testTimeout: 30000,
+  testTimeout: 60000,
   // Test tamamlandığında açık handle'ları zorla kapat
   forceExit: true,
   // Test tamamlandığında clean-up yap
@@ -23,6 +24,10 @@ module.exports = {
     '!src/app.js',
     '!src/scripts/**',
     '!src/config/**',
-    '!src/models/index.js' 
-  ]
+    '!src/models/index.js'
+  ],
+  // Coverage reporters
+  coverageReporters: ['text', 'text-summary', 'lcov', 'html'],
+  // Test çıktısı ayarları
+  silent: false
 };

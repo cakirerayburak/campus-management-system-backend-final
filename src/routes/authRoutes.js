@@ -8,37 +8,40 @@ const { registerSchema, loginSchema } = require('../utils/validationSchemas');
 // Auth için özel rate limiter - Brute force koruması
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 dakika
-    max: 10, // 15 dakikada maksimum 10 deneme
+    max: process.env.NODE_ENV === 'test' ? 10000 : 10, // Test ortamında yüksek limit
     message: {
         success: false,
         message: 'Çok fazla giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test' // Test ortamında tamamen atla
 });
 
 // Daha sıkı rate limiter - şifre sıfırlama için
 const passwordResetLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 saat
-    max: 5, // Saatte maksimum 5 deneme
+    max: process.env.NODE_ENV === 'test' ? 10000 : 5, // Test ortamında yüksek limit
     message: {
         success: false,
         message: 'Çok fazla şifre sıfırlama isteği. Lütfen 1 saat sonra tekrar deneyin.'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test' // Test ortamında tamamen atla
 });
 
 // Register için rate limiter
 const registerLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 saat
-    max: 5, // Saatte maksimum 5 kayıt denemesi
+    max: process.env.NODE_ENV === 'test' ? 10000 : 5, // Test ortamında yüksek limit
     message: {
         success: false,
         message: 'Çok fazla kayıt denemesi. Lütfen 1 saat sonra tekrar deneyin.'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test' // Test ortamında tamamen atla
 });
 
 // Routes

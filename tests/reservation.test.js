@@ -22,7 +22,8 @@ describe('Part 3: Classroom Reservation Tests', () => {
     const classroom = await Classroom.create({
       code: 'B201',
       capacity: 40,
-      building: 'B Block'
+      building: 'B Block',
+      room_number: '201'
     });
     classroomId = classroom.id;
 
@@ -38,8 +39,8 @@ describe('Part 3: Classroom Reservation Tests', () => {
 
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: user.email, password_hash: 'Password123' });
-    authToken = loginRes.body.data.accessToken;
+      .send({ email: user.email, password: 'Password123' });
+    authToken = loginRes.body.data?.accessToken;
 
     // Admin kullanıcı
     const admin = await User.create({
@@ -52,8 +53,8 @@ describe('Part 3: Classroom Reservation Tests', () => {
 
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: admin.email, password_hash: 'Password123' });
-    adminToken = adminLoginRes.body.data.accessToken;
+      .send({ email: admin.email, password: 'Password123' });
+    adminToken = adminLoginRes.body.data?.accessToken;
   });
 
   describe('POST /api/v1/reservations', () => {

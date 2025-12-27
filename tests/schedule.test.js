@@ -21,13 +21,15 @@ describe('Part 3: Course Scheduling Tests', () => {
     // Department ve Course oluştur
     const department = await Department.create({
       name: 'Computer Science',
-      code: 'CSE'
+      code: 'CSE',
+      faculty_name: 'Engineering'
     });
 
     const course = await Course.create({
       name: 'Introduction to Programming',
       code: 'CSE101',
       credits: 3,
+      ects: 5,
       departmentId: department.id
     });
 
@@ -47,10 +49,11 @@ describe('Part 3: Course Scheduling Tests', () => {
     });
 
     // Classroom oluştur
-    await Classroom.create({
+    const classroom = await Classroom.create({
       code: 'A101',
       capacity: 50,
-      building: 'A Block'
+      building: 'A Block',
+      room_number: '101'
     });
 
     // Section oluştur
@@ -60,6 +63,7 @@ describe('Part 3: Course Scheduling Tests', () => {
       semester: 'Fall',
       year: 2024,
       instructorId: faculty.id,
+      classroomId: classroom.id,
       capacity: 30
     });
     sectionId = section.id;
@@ -90,8 +94,8 @@ describe('Part 3: Course Scheduling Tests', () => {
     // Login
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: studentUser.email, password_hash: 'Password123' });
-    authToken = loginRes.body.data.accessToken;
+      .send({ email: studentUser.email, password: 'Password123' });
+    authToken = loginRes.body.data?.accessToken;
 
     // Admin login
     const admin = await User.create({
@@ -104,8 +108,8 @@ describe('Part 3: Course Scheduling Tests', () => {
 
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: admin.email, password_hash: 'Password123' });
-    adminToken = adminLoginRes.body.data.accessToken;
+      .send({ email: admin.email, password: 'Password123' });
+    adminToken = adminLoginRes.body.data?.accessToken;
   });
 
   describe('POST /api/v1/scheduling/generate', () => {
@@ -300,8 +304,8 @@ describe('Part 3: Course Scheduling Tests', () => {
           expect(res.body.message).toContain('onaylandı');
 
           // Verify schedule is now approved
-          const approvedSchedule = await Schedule.findOne({ 
-            where: { batch_id: testBatchId } 
+          const approvedSchedule = await Schedule.findOne({
+            where: { batch_id: testBatchId }
           });
           expect(approvedSchedule.status).toBe('approved');
         }
@@ -309,7 +313,7 @@ describe('Part 3: Course Scheduling Tests', () => {
 
       it('should return 404 for non-existent batch', async () => {
         const fakeBatchId = require('crypto').randomUUID();
-        
+
         const res = await request(app)
           .post(`/api/v1/scheduling/approve/${fakeBatchId}`)
           .set('Authorization', `Bearer ${adminToken}`);
@@ -353,8 +357,8 @@ describe('Part 3: Course Scheduling Tests', () => {
           expect(res.body.message).toContain('reddedildi');
 
           // Verify schedule is deleted
-          const deletedSchedule = await Schedule.findOne({ 
-            where: { batch_id: testBatchId } 
+          const deletedSchedule = await Schedule.findOne({
+            where: { batch_id: testBatchId }
           });
           expect(deletedSchedule).toBeNull();
         }
@@ -362,7 +366,7 @@ describe('Part 3: Course Scheduling Tests', () => {
 
       it('should return 404 for non-existent batch', async () => {
         const fakeBatchId = require('crypto').randomUUID();
-        
+
         const res = await request(app)
           .delete(`/api/v1/scheduling/reject/${fakeBatchId}`)
           .set('Authorization', `Bearer ${adminToken}`);

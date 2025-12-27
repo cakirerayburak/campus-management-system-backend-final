@@ -1,6 +1,12 @@
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
+  // Test ortamında email gönderimini atla (mock)
+  if (process.env.NODE_ENV === 'test') {
+    console.log(`[TEST] Email gönderimi simüle edildi: ${options.email}`);
+    return { messageId: `test-${Date.now()}` };
+  }
+
   // 1. Transporter oluştur (Brevo SMTP yapılandırması)
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST, // smtp-relay.brevo.com
@@ -10,6 +16,9 @@ const sendEmail = async (options) => {
       user: process.env.EMAIL_USER, // Brevo kullanıcı e-postanız
       pass: process.env.EMAIL_PASS, // Brevo SMTP Anahtarı
     },
+    tls: {
+      rejectUnauthorized: false // Sertifika doğrulamasını atla (development için)
+    }
   });
 
   // 2. E-posta içeriğini hazırla
@@ -30,7 +39,7 @@ const sendEmail = async (options) => {
   } catch (error) {
     console.error("E-posta gönderim hatası:", error);
     // Hatanın üst katmana fırlatılması, authController'ın hatayı yakalamasını sağlar
-    throw error; 
+    throw error;
   }
 };
 
