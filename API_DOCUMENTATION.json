@@ -663,6 +663,267 @@
           }
         }
       ]
+    },
+    "scheduling": {
+      "group": "Ders Programı Yönetimi",
+      "basePath": "/scheduling",
+      "description": "Otomatik ders programı oluşturma ve onay sistemi",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/api/v1/scheduling/generate",
+          "name": "Otomatik Program Oluştur",
+          "description": "CSP algoritması ile otomatik ders programı oluşturur. Program 'draft' (taslak) durumunda kaydedilir.",
+          "authenticationRequired": true,
+          "authorization": {
+            "requiredRole": "admin"
+          },
+          "requestBody": {
+            "required": true,
+            "contentType": "application/json",
+            "schema": {
+              "semester": {
+                "type": "string",
+                "required": true,
+                "enum": ["Fall", "Spring", "Summer"],
+                "description": "Dönem"
+              },
+              "year": {
+                "type": "number",
+                "required": true,
+                "description": "Yıl"
+              },
+              "clearExisting": {
+                "type": "boolean",
+                "required": false,
+                "default": false,
+                "description": "Mevcut programları temizle"
+              }
+            },
+            "example": {
+              "semester": "Fall",
+              "year": 2025,
+              "clearExisting": false
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Program taslak olarak oluşturuldu",
+              "body": {
+                "success": true,
+                "message": "X ders başarıyla programlandı (TASLAK olarak).",
+                "batchId": "uuid",
+                "status": "draft",
+                "data": [],
+                "stats": {
+                  "totalSections": 10,
+                  "scheduledSections": 10,
+                  "totalClassrooms": 5,
+                  "totalEnrollments": 100
+                }
+              }
+            },
+            "400": {
+              "description": "Programlanacak ders veya derslik bulunamadı",
+              "body": {
+                "success": false,
+                "message": "Seçilen dönem için hiç ders bulunamadı."
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/scheduling/drafts",
+          "name": "Taslak Programları Listele",
+          "description": "Onay bekleyen taslak (draft) ders programlarını listeler.",
+          "authenticationRequired": true,
+          "authorization": {
+            "requiredRole": "admin"
+          },
+          "queryParameters": {
+            "semester": {
+              "type": "string",
+              "required": false,
+              "enum": ["Fall", "Spring", "Summer"],
+              "description": "Dönem filtresi"
+            },
+            "year": {
+              "type": "number",
+              "required": false,
+              "description": "Yıl filtresi"
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Taslak programlar listelendi",
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "batchId": "uuid",
+                    "createdAt": "2025-01-01T00:00:00.000Z",
+                    "schedules": [],
+                    "stats": {
+                      "totalCourses": 10,
+                      "departmentCount": 3
+                    }
+                  }
+                ],
+                "totalDrafts": 10
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/scheduling/active",
+          "name": "Aktif Programları Getir",
+          "description": "Onaylanmış ve aktif olan ders programlarını getirir.",
+          "authenticationRequired": true,
+          "queryParameters": {
+            "semester": {
+              "type": "string",
+              "required": false,
+              "description": "Dönem filtresi"
+            },
+            "year": {
+              "type": "number",
+              "required": false,
+              "description": "Yıl filtresi"
+            },
+            "departmentId": {
+              "type": "string",
+              "required": false,
+              "description": "Bölüm ID filtresi"
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Aktif programlar listelendi",
+              "body": {
+                "success": true,
+                "data": [],
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/scheduling/approve/:batchId",
+          "name": "Taslağı Onayla",
+          "description": "Taslak ders programını onaylar ve aktifleştirir. Mevcut aktif programlar isteğe bağlı olarak arşivlenir.",
+          "authenticationRequired": true,
+          "authorization": {
+            "requiredRole": "admin"
+          },
+          "pathParameters": {
+            "batchId": {
+              "type": "string",
+              "required": true,
+              "description": "Onaylanacak taslak batch ID'si"
+            }
+          },
+          "requestBody": {
+            "required": false,
+            "contentType": "application/json",
+            "schema": {
+              "archiveExisting": {
+                "type": "boolean",
+                "required": false,
+                "default": true,
+                "description": "Mevcut aktif programları arşivle"
+              }
+            },
+            "example": {
+              "archiveExisting": true
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Program başarıyla onaylandı",
+              "body": {
+                "success": true,
+                "message": "X ders programı başarıyla onaylandı ve aktifleştirildi.",
+                "data": []
+              }
+            },
+            "404": {
+              "description": "Taslak bulunamadı",
+              "body": {
+                "success": false,
+                "message": "Onaylanacak taslak program bulunamadı."
+              }
+            }
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/scheduling/reject/:batchId",
+          "name": "Taslağı Reddet",
+          "description": "Taslak ders programını reddeder ve siler.",
+          "authenticationRequired": true,
+          "authorization": {
+            "requiredRole": "admin"
+          },
+          "pathParameters": {
+            "batchId": {
+              "type": "string",
+              "required": true,
+              "description": "Reddedilecek taslak batch ID'si"
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Taslak başarıyla reddedildi",
+              "body": {
+                "success": true,
+                "message": "X ders programı taslağı reddedildi ve silindi."
+              }
+            },
+            "404": {
+              "description": "Taslak bulunamadı",
+              "body": {
+                "success": false,
+                "message": "Reddedilecek taslak program bulunamadı."
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/scheduling/my-schedule",
+          "name": "Kendi Programımı Getir",
+          "description": "Giriş yapmış kullanıcının (öğrenci veya öğretim üyesi) ders programını getirir.",
+          "authenticationRequired": true,
+          "responses": {
+            "200": {
+              "description": "Program getirildi",
+              "body": {
+                "success": true,
+                "data": []
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/scheduling/my-schedule/ical",
+          "name": "Program iCal Export",
+          "description": "Ders programını iCal (.ics) formatında indirir.",
+          "authenticationRequired": true,
+          "responses": {
+            "200": {
+              "description": "iCal dosyası",
+              "contentType": "text/calendar",
+              "headers": {
+                "Content-Disposition": "attachment; filename=my-schedule.ics"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "dataModels": {
@@ -695,6 +956,18 @@
       "id": "number",
       "name": "string",
       "code": "string"
+    },
+    "Schedule": {
+      "id": "UUID (string)",
+      "section_id": "UUID (foreign key to CourseSection)",
+      "classroom_id": "UUID (foreign key to Classroom)",
+      "day_of_week": "enum: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'",
+      "start_time": "time (HH:mm)",
+      "end_time": "time (HH:mm)",
+      "status": "enum: 'draft' | 'approved' | 'rejected' | 'archived' (default: 'draft')",
+      "batch_id": "UUID (optional) - Aynı generate işleminde oluşturulan schedule'ları gruplar",
+      "approved_by": "UUID (optional) - Onaylayan admin kullanıcı ID",
+      "approved_at": "datetime (optional)"
     }
   },
   "errorCodes": {
@@ -711,7 +984,7 @@
     "passwordReset": "Şifre sıfırlama token'ı 10 dakika geçerlidir.",
     "fileUpload": "Profil fotoğrafı yükleme için multipart/form-data kullanılmalıdır.",
     "pagination": "Listeleme endpoint'lerinde sayfalama için 'page' ve 'limit' query parametreleri kullanılabilir.",
-    "rateLimiting": "API'ye 15 dakikada maksimum 100 istek gönderilebilir."
+    "rateLimiting": "API'ye 15 dakikada maksimum 100 istek gönderilebilir.",
+    "scheduleApproval": "Otomatik oluşturulan ders programları 'draft' durumunda kaydedilir. Admin onayı sonrası 'approved' olarak aktifleşir."
   }
 }
-

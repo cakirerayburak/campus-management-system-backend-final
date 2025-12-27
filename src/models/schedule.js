@@ -24,6 +24,28 @@ module.exports = (sequelize, DataTypes) => {
     end_time: {
       type: DataTypes.TIME,
       allowNull: false
+    },
+    // Yeni: Schedule onay durumu
+    status: {
+      type: DataTypes.ENUM('draft', 'approved', 'rejected', 'archived'),
+      defaultValue: 'draft',
+      allowNull: false,
+      comment: 'draft: Onay bekliyor, approved: Aktif kullanımda, rejected: Reddedildi, archived: Arşivlendi'
+    },
+    // Batch ID: Aynı anda oluşturulan programları gruplamak için
+    batch_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Aynı generate işleminde oluşturulan schedule\'ları gruplar'
+    },
+    approved_by: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Onaylayan admin kullanıcı ID'
+    },
+    approved_at: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   });
 

@@ -149,7 +149,8 @@ describe('Part 3: Course Scheduling Tests', () => {
           classroom_id: classroom.id,
           day_of_week: 'Monday',
           start_time: '09:00',
-          end_time: '10:40'
+          end_time: '10:40',
+          status: 'approved' // Aktif schedule olması için
         });
       }
 
@@ -174,7 +175,8 @@ describe('Part 3: Course Scheduling Tests', () => {
           classroom_id: classroom.id,
           day_of_week: 'Tuesday',
           start_time: '11:00',
-          end_time: '12:40'
+          end_time: '12:40',
+          status: 'approved'
         });
 
         const res = await request(app)
@@ -201,5 +203,172 @@ describe('Part 3: Course Scheduling Tests', () => {
       expect(res.text).toContain('END:VCALENDAR');
     });
   });
-});
 
+  // ============================================================================
+  // YENİ: Schedule Onay Sistemi Testleri
+  // ============================================================================
+  describe('Schedule Approval System', () => {
+    let draftBatchId;
+
+    describe('POST /api/v1/scheduling/generate (Draft Creation)', () => {
+      it('should generate schedule as draft', async () => {
+        const res = await request(app)
+          .post('/api/v1/scheduling/generate')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            semester: 'Fall',
+            year: 2024,
+            clearExisting: true
+          });
+
+        // Eğer section varsa başarılı olmalı
+        if (res.statusCode === 200) {
+          expect(res.body.success).toBe(true);
+          expect(res.body.status).toBe('draft');
+          expect(res.body.batchId).toBeDefined();
+          draftBatchId = res.body.batchId;
+        }
+      });
+    });
+
+    describe('GET /api/v1/scheduling/drafts', () => {
+      it('should list draft schedules (admin only)', async () => {
+        const res = await request(app)
+          .get('/api/v1/scheduling/drafts')
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+      });
+
+      it('should reject non-admin access', async () => {
+        const res = await request(app)
+          .get('/api/v1/scheduling/drafts')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(res.statusCode).toEqual(403);
+      });
+    });
+
+    describe('GET /api/v1/scheduling/active', () => {
+      it('should list active (approved) schedules', async () => {
+        const res = await request(app)
+          .get('/api/v1/scheduling/active')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+      });
+
+      it('should filter by semester and year', async () => {
+        const res = await request(app)
+          .get('/api/v1/scheduling/active?semester=Fall&year=2024')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.success).toBe(true);
+      });
+    });
+
+    describe('POST /api/v1/scheduling/approve/:batchId', () => {
+      it('should approve draft schedule', async () => {
+        // Önce bir draft oluştur
+        const classroom = await Classroom.findOne();
+        const section = await CourseSection.findByPk(sectionId);
+        const testBatchId = require('crypto').randomUUID();
+
+        if (classroom && section) {
+          await Schedule.create({
+            section_id: section.id,
+            classroom_id: classroom.id,
+            day_of_week: 'Wednesday',
+            start_time: '13:00',
+            end_time: '14:40',
+            status: 'draft',
+            batch_id: testBatchId
+          });
+
+          const res = await request(app)
+            .post(`/api/v1/scheduling/approve/${testBatchId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ archiveExisting: false });
+
+          expect(res.statusCode).toEqual(200);
+          expect(res.body.success).toBe(true);
+          expect(res.body.message).toContain('onaylandı');
+
+          // Verify schedule is now approved
+          const approvedSchedule = await Schedule.findOne({ 
+            where: { batch_id: testBatchId } 
+          });
+          expect(approvedSchedule.status).toBe('approved');
+        }
+      });
+
+      it('should return 404 for non-existent batch', async () => {
+        const fakeBatchId = require('crypto').randomUUID();
+        
+        const res = await request(app)
+          .post(`/api/v1/scheduling/approve/${fakeBatchId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.statusCode).toEqual(404);
+      });
+
+      it('should reject non-admin access', async () => {
+        const res = await request(app)
+          .post('/api/v1/scheduling/approve/some-batch-id')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(res.statusCode).toEqual(403);
+      });
+    });
+
+    describe('DELETE /api/v1/scheduling/reject/:batchId', () => {
+      it('should reject and delete draft schedule', async () => {
+        // Önce bir draft oluştur
+        const classroom = await Classroom.findOne();
+        const section = await CourseSection.findByPk(sectionId);
+        const testBatchId = require('crypto').randomUUID();
+
+        if (classroom && section) {
+          await Schedule.create({
+            section_id: section.id,
+            classroom_id: classroom.id,
+            day_of_week: 'Thursday',
+            start_time: '15:00',
+            end_time: '16:40',
+            status: 'draft',
+            batch_id: testBatchId
+          });
+
+          const res = await request(app)
+            .delete(`/api/v1/scheduling/reject/${testBatchId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+          expect(res.statusCode).toEqual(200);
+          expect(res.body.success).toBe(true);
+          expect(res.body.message).toContain('reddedildi');
+
+          // Verify schedule is deleted
+          const deletedSchedule = await Schedule.findOne({ 
+            where: { batch_id: testBatchId } 
+          });
+          expect(deletedSchedule).toBeNull();
+        }
+      });
+
+      it('should return 404 for non-existent batch', async () => {
+        const fakeBatchId = require('crypto').randomUUID();
+        
+        const res = await request(app)
+          .delete(`/api/v1/scheduling/reject/${fakeBatchId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.statusCode).toEqual(404);
+      });
+    });
+  });
+});

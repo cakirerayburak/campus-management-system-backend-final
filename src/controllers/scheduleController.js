@@ -422,7 +422,8 @@ exports.generateSchedule = async (req, res) => {
       });
     }
 
-    // 6. Oluşturulan programı veritabanına kaydet
+    // 6. Oluşturulan programı veritabanına kaydet (DRAFT olarak)
+    const batchId = require('crypto').randomUUID(); // Batch ID oluştur
     const createdSchedules = [];
     for (const assignment of result.schedule) {
       const schedule = await Schedule.create({
@@ -430,7 +431,9 @@ exports.generateSchedule = async (req, res) => {
         classroom_id: assignment.classroom_id,
         day_of_week: assignment.day,
         start_time: assignment.start_time,
-        end_time: assignment.end_time
+        end_time: assignment.end_time,
+        status: 'draft',  // Yeni: Draft olarak oluştur
+        batch_id: batchId // Yeni: Batch ID ekle
       }, { transaction: t });
 
       createdSchedules.push(schedule);
@@ -473,13 +476,16 @@ exports.generateSchedule = async (req, res) => {
       order: [['day_of_week', 'ASC'], ['start_time', 'ASC']]
     });
     // Başarı mesajı oluştur
-    const successMessage = `${createdSchedules.length} ders başarıyla programlandı. ` +
-      `Tüm çakışmalar kontrol edildi: Öğretim üyesi çakışması yok, öğrenci çakışması yok, derslik çakışması yok.`;
+    const successMessage = `${createdSchedules.length} ders başarıyla programlandı (TASLAK olarak). ` +
+      `Tüm çakışmalar kontrol edildi: Öğretim üyesi çakışması yok, öğrenci çakışması yok, derslik çakışması yok. ` +
+      `Programı aktifleştirmek için onaylayın.`;
     
    res.json({ 
       success: true, 
       message: successMessage,
       data: populatedSchedules,
+      batchId: batchId, // Yeni: Batch ID döndür
+      status: 'draft',  // Yeni: Durum bilgisi
       stats: {
         totalSections: sections.length,
         scheduledSections: createdSchedules.length,
@@ -698,6 +704,268 @@ exports.getResourceUtilization = async (req, res) => {
     report.sort((a, b) => parseFloat(b.utilizationRate) - parseFloat(a.utilizationRate));
 
     res.json({ success: true, data: report });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ============================================================================
+// YENİ: SCHEDULE ONAY SİSTEMİ (Draft → Approved Workflow)
+// ============================================================================
+
+/**
+ * @desc    Onay bekleyen (draft) programları listele
+ * @route   GET /api/v1/scheduling/drafts
+ * @access  Admin
+ */
+exports.getDraftSchedules = async (req, res) => {
+  try {
+    const { semester, year } = req.query;
+    
+    // Batch'lere göre grupla
+    const drafts = await Schedule.findAll({
+      where: { status: 'draft' },
+      include: [
+        { 
+          model: CourseSection, 
+          as: 'section',
+          include: [
+            { model: Course, as: 'course' },
+            { 
+              model: Faculty, 
+              as: 'instructor',
+              include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+            }
+          ],
+          ...(semester || year ? { 
+            where: { 
+              ...(semester && { semester }), 
+              ...(year && { year: parseInt(year) }) 
+            } 
+          } : {})
+        },
+        { model: Classroom, as: 'classroom' }
+      ],
+      order: [['batch_id', 'ASC'], ['day_of_week', 'ASC'], ['start_time', 'ASC']]
+    });
+
+    // Batch'lere göre grupla
+    const batchGroups = {};
+    drafts.forEach(schedule => {
+      const batchId = schedule.batch_id || 'no-batch';
+      if (!batchGroups[batchId]) {
+        batchGroups[batchId] = {
+          batchId: batchId,
+          createdAt: schedule.createdAt,
+          schedules: [],
+          stats: {
+            totalCourses: 0,
+            departments: new Set()
+          }
+        };
+      }
+      batchGroups[batchId].schedules.push(schedule);
+      batchGroups[batchId].stats.totalCourses++;
+      if (schedule.section?.course?.departmentId) {
+        batchGroups[batchId].stats.departments.add(schedule.section.course.departmentId);
+      }
+    });
+
+    // Set'leri sayıya çevir
+    Object.values(batchGroups).forEach(batch => {
+      batch.stats.departmentCount = batch.stats.departments.size;
+      delete batch.stats.departments;
+    });
+
+    res.json({ 
+      success: true, 
+      data: Object.values(batchGroups),
+      totalDrafts: drafts.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * @desc    Draft programı onayla (Approve)
+ * @route   POST /api/v1/scheduling/approve/:batchId
+ * @access  Admin
+ */
+exports.approveSchedule = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { batchId } = req.params;
+    const { archiveExisting = true } = req.body;
+
+    // 1. Draft batch'i bul
+    const draftSchedules = await Schedule.findAll({
+      where: { batch_id: batchId, status: 'draft' },
+      transaction: t
+    });
+
+    if (draftSchedules.length === 0) {
+      await t.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Onaylanacak taslak program bulunamadı.' 
+      });
+    }
+
+    // 2. Mevcut approved programları archive et (isteğe bağlı)
+    if (archiveExisting) {
+      await Schedule.update(
+        { status: 'archived' },
+        { where: { status: 'approved' }, transaction: t }
+      );
+    }
+
+    // 3. Draft'ları approved yap
+    await Schedule.update(
+      { 
+        status: 'approved',
+        approved_by: req.user.id,
+        approved_at: new Date()
+      },
+      { where: { batch_id: batchId, status: 'draft' }, transaction: t }
+    );
+
+    // 4. CourseSection'ların schedule_json'ını güncelle
+    for (const schedule of draftSchedules) {
+      const classroom = await Classroom.findByPk(schedule.classroom_id, { transaction: t });
+      await CourseSection.update(
+        {
+          schedule_json: [{
+            day: schedule.day_of_week,
+            start_time: schedule.start_time,
+            end_time: schedule.end_time,
+            room: classroom?.code || ''
+          }]
+        },
+        { where: { id: schedule.section_id }, transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    // Onaylanan programları getir
+    const approvedSchedules = await Schedule.findAll({
+      where: { batch_id: batchId },
+      include: [
+        { 
+          model: CourseSection, 
+          as: 'section',
+          include: [
+            { model: Course, as: 'course' },
+            { model: Faculty, as: 'instructor', include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }] }
+          ]
+        },
+        { model: Classroom, as: 'classroom' }
+      ],
+      order: [['day_of_week', 'ASC'], ['start_time', 'ASC']]
+    });
+
+    res.json({ 
+      success: true, 
+      message: `${draftSchedules.length} ders programı başarıyla onaylandı ve aktifleştirildi.`,
+      data: approvedSchedules
+    });
+
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * @desc    Draft programı reddet (Reject/Delete)
+ * @route   DELETE /api/v1/scheduling/reject/:batchId
+ * @access  Admin
+ */
+exports.rejectSchedule = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { batchId } = req.params;
+
+    // 1. Draft batch'i bul
+    const draftSchedules = await Schedule.findAll({
+      where: { batch_id: batchId, status: 'draft' },
+      transaction: t
+    });
+
+    if (draftSchedules.length === 0) {
+      await t.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Reddedilecek taslak program bulunamadı.' 
+      });
+    }
+
+    // 2. Draft'ları sil
+    const deletedCount = await Schedule.destroy({
+      where: { batch_id: batchId, status: 'draft' },
+      transaction: t
+    });
+
+    await t.commit();
+
+    res.json({ 
+      success: true, 
+      message: `${deletedCount} ders programı taslağı reddedildi ve silindi.`
+    });
+
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * @desc    Aktif (approved) programları getir
+ * @route   GET /api/v1/scheduling/active
+ * @access  Protected
+ */
+exports.getActiveSchedules = async (req, res) => {
+  try {
+    const { semester, year, departmentId } = req.query;
+
+    const whereClause = { status: 'approved' };
+    const sectionWhere = {};
+    
+    if (semester) sectionWhere.semester = semester;
+    if (year) sectionWhere.year = parseInt(year);
+
+    const schedules = await Schedule.findAll({
+      where: whereClause,
+      include: [
+        { 
+          model: CourseSection, 
+          as: 'section',
+          where: Object.keys(sectionWhere).length > 0 ? sectionWhere : undefined,
+          include: [
+            { 
+              model: Course, 
+              as: 'course',
+              where: departmentId ? { departmentId } : undefined,
+              include: [{ model: Department, as: 'department' }]
+            },
+            { 
+              model: Faculty, 
+              as: 'instructor',
+              include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
+        },
+        { model: Classroom, as: 'classroom' }
+      ],
+      order: [['day_of_week', 'ASC'], ['start_time', 'ASC']]
+    });
+
+    res.json({ 
+      success: true, 
+      data: schedules,
+      count: schedules.length
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
