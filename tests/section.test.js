@@ -19,7 +19,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({
     name: 'Admin User',
     email: adminEmail,
-    password: 'Password123',
+    password_hash: 'Password123',
     role: 'student'
   });
 
@@ -30,7 +30,7 @@ beforeAll(async () => {
   
   const login = await request(app).post('/api/v1/auth/login').send({
     email: adminEmail, 
-    password: 'Password123'
+    password_hash: 'Password123'
   });
   adminToken = login.body.data.accessToken;
 

@@ -34,7 +34,7 @@ describe('Part 3: Meal Service Tests', () => {
     const normalStudentData = {
       name: 'Normal Student',
       email: `normal${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'student',
       is_verified: true
     };
@@ -50,7 +50,7 @@ describe('Part 3: Meal Service Tests', () => {
     const scholarshipData = {
       name: 'Scholarship Student',
       email: `scholarship${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'student',
       is_verified: true
     };
@@ -66,7 +66,7 @@ describe('Part 3: Meal Service Tests', () => {
     const staffUser = await User.create({
       name: 'Staff User',
       email: `staff${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'staff',
       is_verified: true
     });
@@ -74,12 +74,12 @@ describe('Part 3: Meal Service Tests', () => {
     // Login yap ve token al
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: normalStudentData.email, password: 'Password123' });
+      .send({ email: normalStudentData.email, password_hash: 'Password123' });
     authToken = loginRes.body.data.accessToken;
 
     const staffLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: staffUser.email, password: 'Password123' });
+      .send({ email: staffUser.email, password_hash: 'Password123' });
     staffToken = staffLoginRes.body.data.accessToken;
 
     // Menü oluştur
@@ -147,7 +147,7 @@ describe('Part 3: Meal Service Tests', () => {
           email: scholarshipStudent.userId ? 
             (await User.findByPk(scholarshipStudent.userId)).email : 
             `scholarship${Date.now()}@test.com`, 
-          password: 'Password123' 
+          password_hash: 'Password123' 
         });
       scholarshipToken = loginRes.body.data?.accessToken;
     });

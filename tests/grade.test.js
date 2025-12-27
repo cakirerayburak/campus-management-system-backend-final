@@ -29,7 +29,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({
     name: 'Professor X',
     email: facEmail,
-    password: 'Password123',
+    password_hash: 'Password123',
     role: 'student' // API kısıtlamasına takılmamak için student başlıyoruz
   });
 
@@ -52,7 +52,7 @@ beforeAll(async () => {
   // C) Giriş Yap
   const facLogin = await request(app).post('/api/v1/auth/login').send({
     email: facEmail,
-    password: 'Password123'
+    password_hash: 'Password123'
   });
   instructorToken = facLogin.body.data.accessToken;
 
@@ -65,7 +65,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({
     name: 'Student Y',
     email: stuEmail,
-    password: 'Password123',
+    password_hash: 'Password123',
     role: 'student'
   });
 
@@ -88,7 +88,7 @@ beforeAll(async () => {
   // C) Giriş Yap
   const stuLogin = await request(app).post('/api/v1/auth/login').send({
     email: stuEmail,
-    password: 'Password123'
+    password_hash: 'Password123'
   });
   studentToken = stuLogin.body.data.accessToken;
 

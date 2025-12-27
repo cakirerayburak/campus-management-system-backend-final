@@ -242,9 +242,10 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "test": "cross-env NODE_ENV=test jest --testTimeout=10000 --runInBand --detectOpenHandles",
+    "test": "cross-env NODE_ENV=test jest --forceExit",
     "seed": "node src/scripts/seed.js",
-    "test:coverage": "cross-env NODE_ENV=test jest --coverage --runInBand --detectOpenHandles",
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage --forceExit",
+    "test:verbose": "cross-env NODE_ENV=test jest --verbose --forceExit",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
     "migrate:undo:all": "sequelize-cli db:migrate:undo:all",
@@ -258,6 +259,7 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "jest": "^30.2.0",
+    "sqlite3": "^5.1.7",
     "supertest": "^7.1.4"
   }
 }

@@ -22,7 +22,7 @@ describe('Part 3: Event Management Tests', () => {
     const user = await User.create({
       name: 'Event Test User',
       email: `event${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'student',
       is_verified: true
     });
@@ -30,21 +30,21 @@ describe('Part 3: Event Management Tests', () => {
 
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: user.email, password: 'Password123' });
+      .send({ email: user.email, password_hash: 'Password123' });
     authToken = loginRes.body.data.accessToken;
 
     // Admin kullanıcı
     const admin = await User.create({
       name: 'Admin User',
       email: `admin${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'admin',
       is_verified: true
     });
 
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+      .send({ email: admin.email, password_hash: 'Password123' });
     adminToken = adminLoginRes.body.data.accessToken;
 
     // Test event oluştur
@@ -192,14 +192,14 @@ describe('Part 3: Event Management Tests', () => {
       const newUser = await User.create({
         name: 'New User',
         email: `new${Date.now()}@test.com`,
-        password: 'Password123',
+        password_hash: 'Password123',
         role: 'student',
         is_verified: true
       });
 
       const loginRes = await request(app)
         .post('/api/v1/auth/login')
-        .send({ email: newUser.email, password: 'Password123' });
+        .send({ email: newUser.email, password_hash: 'Password123' });
       const newToken = loginRes.body.data.accessToken;
 
       await request(app)

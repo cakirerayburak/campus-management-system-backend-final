@@ -35,7 +35,7 @@ describe('Part 3: Course Scheduling Tests', () => {
     const facultyUser = await User.create({
       name: 'Faculty User',
       email: `faculty${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'faculty',
       is_verified: true
     });
@@ -68,7 +68,7 @@ describe('Part 3: Course Scheduling Tests', () => {
     const studentUser = await User.create({
       name: 'Schedule Test Student',
       email: `schedule${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'student',
       is_verified: true
     });
@@ -90,21 +90,21 @@ describe('Part 3: Course Scheduling Tests', () => {
     // Login
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: studentUser.email, password: 'Password123' });
+      .send({ email: studentUser.email, password_hash: 'Password123' });
     authToken = loginRes.body.data.accessToken;
 
     // Admin login
     const admin = await User.create({
       name: 'Schedule Admin',
       email: `scheduleadmin${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'admin',
       is_verified: true
     });
 
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+      .send({ email: admin.email, password_hash: 'Password123' });
     adminToken = adminLoginRes.body.data.accessToken;
   });
 

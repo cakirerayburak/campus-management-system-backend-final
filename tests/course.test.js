@@ -18,7 +18,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({
     name: 'Admin User',
     email: adminEmail,
-    password: 'Password123',
+    password_hash: 'Password123',
     role: 'student'
   });
 
@@ -31,7 +31,7 @@ beforeAll(async () => {
   // C) Giriş Yap
   const login = await request(app).post('/api/v1/auth/login').send({
     email: adminEmail, 
-    password: 'Password123'
+    password_hash: 'Password123'
   });
   
   if (!login.body.data) console.error("Admin Login Failed:", login.body);

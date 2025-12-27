@@ -11,23 +11,34 @@ const db = {};
 require('dotenv').config();
 
 let sequelize;
+const env = process.env.NODE_ENV || 'development';
 
-// 1. Önce Railway'in verdiği standart DATABASE_URL var mı diye bakıyoruz
-if (process.env.DATABASE_URL) {
+// TEST ORTAMI: config.json kullan (SQLite :memory:)
+if (env === 'test') {
+  const config = require(path.join(__dirname, '../../config/config.json'))[env];
+  
+  if (config.use_env_variable) {
+    sequelize = new Sequelize(process.env[config.use_env_variable], config);
+  } else {
+    sequelize = new Sequelize(config.database, config.username, config.password, config);
+  }
+}
+// 1. PRODUCTION/DEVELOPMENT: Railway DATABASE_URL
+else if (process.env.DATABASE_URL) {
   sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
     protocol: 'postgres',
-    port: 5432, // Postgres varsayılan portu
-    logging: false, // Log kirliliğini önlemek için
+    port: 5432,
+    logging: false,
     dialectOptions: {
       ssl: {
         require: true, 
-        rejectUnauthorized: false // Railway sertifikaları için bu gereklidir
+        rejectUnauthorized: false
       }
     }
   });
 } 
-// 2. Yoksa yerel geliştirme için eski yöntemi kullan (DB_NAME, DB_USER vb.)
+// 2. LOCAL DEVELOPMENT: DB_NAME, DB_USER, DB_PASS
 else if (process.env.DB_NAME && process.env.DB_USER && process.env.DB_PASS) {
   sequelize = new Sequelize(
     process.env.DB_NAME,
@@ -44,8 +55,6 @@ else if (process.env.DB_NAME && process.env.DB_USER && process.env.DB_PASS) {
         acquire: 30000,
         idle: 10000
       },
-      // Geliştirme ortamında (localhost) SSL genelde gerekmez ama 
-      // production'da DB_HOST uzak sunucuysa gerekebilir.
       ...(process.env.NODE_ENV === 'production' && {
         dialectOptions: {
           ssl: {

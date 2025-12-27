@@ -30,7 +30,7 @@ describe('Part 3: Classroom Reservation Tests', () => {
     const user = await User.create({
       name: 'Reservation Test User',
       email: `reservation${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'student',
       is_verified: true
     });
@@ -38,21 +38,21 @@ describe('Part 3: Classroom Reservation Tests', () => {
 
     const loginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: user.email, password: 'Password123' });
+      .send({ email: user.email, password_hash: 'Password123' });
     authToken = loginRes.body.data.accessToken;
 
     // Admin kullanıcı
     const admin = await User.create({
       name: 'Reservation Admin',
       email: `reservationadmin${Date.now()}@test.com`,
-      password: 'Password123',
+      password_hash: 'Password123',
       role: 'admin',
       is_verified: true
     });
 
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+      .send({ email: admin.email, password_hash: 'Password123' });
     adminToken = adminLoginRes.body.data.accessToken;
   });
 
@@ -155,7 +155,7 @@ describe('Part 3: Classroom Reservation Tests', () => {
       const otherUser = await User.create({
         name: 'Other User',
         email: `other${Date.now()}@test.com`,
-        password: 'Password123',
+        password_hash: 'Password123',
         role: 'student',
         is_verified: true
       });

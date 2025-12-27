@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const db = require('../src/models');
+const { createTestUser } = require('./helpers/testUtils');
 const { Wallet, Transaction, User } = db;
 
 beforeAll(async () => {
@@ -16,21 +17,13 @@ describe('Part 3: Wallet Service Tests', () => {
   let userId;
 
   beforeAll(async () => {
-    // Test kullanıcısı oluştur
-    const user = await User.create({
+    // Test kullanıcısı oluştur (API üzerinden)
+    const { user, token } = await createTestUser({
       name: 'Wallet Test User',
-      email: `wallet${Date.now()}@test.com`,
-      password: 'Password123',
-      role: 'student',
-      is_verified: true
+      role: 'student'
     });
     userId = user.id;
-
-    // Login
-    const loginRes = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: user.email, password: 'Password123' });
-    authToken = loginRes.body.data.accessToken;
+    authToken = token;
   });
 
   describe('GET /api/v1/wallet/balance', () => {
@@ -46,19 +39,11 @@ describe('Part 3: Wallet Service Tests', () => {
     });
 
     it('should create wallet if not exists', async () => {
-      // Yeni kullanıcı
-      const newUser = await User.create({
-        name: 'New User',
-        email: `new${Date.now()}@test.com`,
-        password: 'Password123',
-        role: 'student',
-        is_verified: true
+      // Yeni kullanıcı (API üzerinden)
+      const { token: newToken } = await createTestUser({
+        name: 'New Wallet User',
+        role: 'student'
       });
-
-      const loginRes = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ email: newUser.email, password: 'Password123' });
-      const newToken = loginRes.body.data.accessToken;
 
       const res = await request(app)
         .get('/api/v1/wallet/balance')

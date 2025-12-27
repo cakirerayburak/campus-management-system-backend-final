@@ -18,7 +18,10 @@ const registerSchema = Joi.object({
     }),
   role: Joi.string().valid('student', 'faculty').required(),
   student_number: Joi.string().optional(),
-  department_id: Joi.string().uuid().allow(null, '').optional(), // UUID string olarak kabul et, null veya boş string'e izin ver
+  department_id: Joi.alternatives().try(
+    Joi.number().integer().positive(),  // Integer ID kabul et
+    Joi.string().uuid()                  // veya UUID string kabul et
+  ).allow(null, '').optional(),
   employee_number: Joi.string().optional(),
   title: Joi.string().optional(),
   name: Joi.string().optional()

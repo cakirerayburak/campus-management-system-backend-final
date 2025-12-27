@@ -15,7 +15,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({ 
     name: 'Admin', 
     email: adminEmail, 
-    password: 'Password123', // DÜZELTİLDİ
+    password_hash: 'Password123', // DÜZELTİLDİ
     role: 'student' 
   });
   
@@ -23,7 +23,7 @@ beforeAll(async () => {
   
   const adminLogin = await request(app).post('/api/v1/auth/login').send({ 
     email: adminEmail, 
-    password: 'Password123' // DÜZELTİLDİ
+    password_hash: 'Password123' // DÜZELTİLDİ
   });
   
   if (!adminLogin.body.data) console.error("Admin Login Fail:", adminLogin.body);
@@ -33,7 +33,7 @@ beforeAll(async () => {
   await request(app).post('/api/v1/auth/register').send({ 
     name: 'User', 
     email: userEmail, 
-    password: 'Password123', // DÜZELTİLDİ
+    password_hash: 'Password123', // DÜZELTİLDİ
     role: 'student' 
   });
   
@@ -41,7 +41,7 @@ beforeAll(async () => {
   
   const userLogin = await request(app).post('/api/v1/auth/login').send({ 
     email: userEmail, 
-    password: 'Password123' // DÜZELTİLDİ
+    password_hash: 'Password123' // DÜZELTİLDİ
   });
   
   userToken = userLogin.body.data.accessToken;

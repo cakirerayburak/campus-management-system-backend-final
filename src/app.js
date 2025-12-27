@@ -90,17 +90,25 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await sequelize.authenticate();
-    logger.info('Veritabanı bağlantısı başarılı.'); // console.log yerine
+    logger.info('Veritabanı bağlantısı başarılı.');
 
-    await sequelize.sync({ alter: true });
-    console.log('Tablolar senkronize edildi.');
-
-   app.listen(PORT, () => {
-      logger.info(`Sunucu ${process.env.NODE_ENV} modunda ${PORT} portunda çalışıyor.`);
-    });
+    // Test ortamında sync işlemi test dosyalarında yapılıyor
+    if (process.env.NODE_ENV !== 'test') {
+      await sequelize.sync({ alter: true });
+      console.log('Tablolar senkronize edildi.');
+      
+      app.listen(PORT, () => {
+        logger.info(`Sunucu ${process.env.NODE_ENV} modunda ${PORT} portunda çalışıyor.`);
+      });
+    }
   } catch (error) {
     logger.error(`Sunucu başlatılamadı: ${error.message}`);
   }
 };
-startServer();
+
+// Test ortamında sunucuyu otomatik başlatma
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
 module.exports = app;
