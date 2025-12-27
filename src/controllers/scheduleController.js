@@ -6,22 +6,22 @@ const schedulingService = require('../services/schedulingService');
 exports.getScheduleDetail = async (req, res) => {
   try {
     const { scheduleId } = req.params;
-    
+
     const schedule = await Schedule.findByPk(scheduleId, {
       include: [
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           include: [
-            { 
-              model: Course, 
+            {
+              model: Course,
               as: 'course',
               include: [
                 { model: Department, as: 'department' }
               ]
             },
-            { 
-              model: Faculty, 
+            {
+              model: Faculty,
               as: 'instructor',
               include: [
                 { model: User, attributes: ['id', 'name', 'email'] }
@@ -47,27 +47,27 @@ exports.getScheduleDetail = async (req, res) => {
 exports.getSchedulesByDepartment = async (req, res) => {
   try {
     const { departmentId, semester, year } = req.query;
-    
+
     const whereClause = {};
     if (semester) whereClause.semester = semester;
     if (year) whereClause.year = year;
 
     // Bölüm bazlı filtreleme için Course üzerinden join yapacağız
     const includeClause = [
-      { 
-        model: CourseSection, 
+      {
+        model: CourseSection,
         as: 'section',
         include: [
-          { 
-            model: Course, 
+          {
+            model: Course,
             as: 'course',
             include: [
               { model: Department, as: 'department' }
             ],
             ...(departmentId ? { where: { departmentId } } : {})
           },
-          { 
-            model: Faculty, 
+          {
+            model: Faculty,
             as: 'instructor',
             include: [
               { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
@@ -90,7 +90,7 @@ exports.getSchedulesByDepartment = async (req, res) => {
     // Eğer departmentId varsa, filtreleme yap
     let filteredSchedules = schedules;
     if (departmentId) {
-      filteredSchedules = schedules.filter(schedule => 
+      filteredSchedules = schedules.filter(schedule =>
         schedule.section?.course?.departmentId === departmentId
       );
     }
@@ -105,7 +105,7 @@ exports.getSchedulesByDepartment = async (req, res) => {
 exports.getAllDepartmentSchedules = async (req, res) => {
   try {
     const { semester, year } = req.query;
-    
+
     // Tüm bölümleri çek
     const departments = await Department.findAll({
       order: [['name', 'ASC']]
@@ -120,21 +120,21 @@ exports.getAllDepartmentSchedules = async (req, res) => {
 
         const schedules = await Schedule.findAll({
           include: [
-            { 
-              model: CourseSection, 
+            {
+              model: CourseSection,
               as: 'section',
               where: whereClause,
               include: [
-                { 
-                  model: Course, 
+                {
+                  model: Course,
                   as: 'course',
                   where: { departmentId: department.id },
                   include: [
                     { model: Department, as: 'department' }
                   ]
                 },
-                { 
-                  model: Faculty, 
+                {
+                  model: Faculty,
                   as: 'instructor',
                   include: [
                     { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
@@ -172,7 +172,7 @@ exports.getMySchedule = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
-    
+
     let schedules = [];
 
     if (user.role === 'student') {
@@ -180,7 +180,7 @@ exports.getMySchedule = async (req, res) => {
       const student = await Student.findOne({ where: { userId } });
       if (student) {
         const enrollments = await Enrollment.findAll({
-          where: { 
+          where: {
             studentId: student.id,
             status: 'enrolled'
           },
@@ -195,12 +195,12 @@ exports.getMySchedule = async (req, res) => {
         });
 
         const sectionIds = enrollments.map(e => e.sectionId);
-        
+
         schedules = await Schedule.findAll({
           where: { section_id: { [Op.in]: sectionIds } },
           include: [
-            { 
-              model: CourseSection, 
+            {
+              model: CourseSection,
               as: 'section',
               include: [
                 { model: Course, as: 'course' },
@@ -221,8 +221,8 @@ exports.getMySchedule = async (req, res) => {
       if (faculty) {
         schedules = await Schedule.findAll({
           include: [
-            { 
-              model: CourseSection, 
+            {
+              model: CourseSection,
               as: 'section',
               where: { instructorId: faculty.id },
               include: [
@@ -238,7 +238,7 @@ exports.getMySchedule = async (req, res) => {
         });
       }
     }
-    
+
     res.json({ success: true, data: schedules });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -249,7 +249,7 @@ exports.getMySchedule = async (req, res) => {
 exports.createReservation = async (req, res) => {
   try {
     const { classroomId, date, startTime, endTime, purpose } = req.body;
-    
+
     // Çakışma kontrolü (Basit)
     const conflict = await Reservation.findOne({
       where: {
@@ -303,12 +303,12 @@ exports.generateSchedule = async (req, res) => {
     if (semester) whereClause.semester = semester;
     if (year) whereClause.year = year;
 
-    const sections = await CourseSection.findAll({ 
+    const sections = await CourseSection.findAll({
       where: whereClause,
       include: [
         { model: Course, as: 'course' },
-        { 
-          model: Faculty, 
+        {
+          model: Faculty,
           as: 'instructor',
           include: [
             { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
@@ -351,12 +351,12 @@ exports.generateSchedule = async (req, res) => {
       },
       include: [
         { model: Student, as: 'student' },
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           include: [
-            { 
-              model: Schedule, 
+            {
+              model: Schedule,
               as: 'schedules',
               required: false // Mevcut programları da çek (optional)
             }
@@ -457,13 +457,13 @@ exports.generateSchedule = async (req, res) => {
     const populatedSchedules = await Schedule.findAll({
       where: { id: { [Op.in]: scheduleIds } },
       include: [
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           include: [
             { model: Course, as: 'course' },     // Ders adı için gerekli
-            { 
-              model: Faculty, 
+            {
+              model: Faculty,
               as: 'instructor',
               include: [
                 { model: User, as: 'user', attributes: ['id', 'name', 'email'] }
@@ -479,9 +479,9 @@ exports.generateSchedule = async (req, res) => {
     const successMessage = `${createdSchedules.length} ders başarıyla programlandı (TASLAK olarak). ` +
       `Tüm çakışmalar kontrol edildi: Öğretim üyesi çakışması yok, öğrenci çakışması yok, derslik çakışması yok. ` +
       `Programı aktifleştirmek için onaylayın.`;
-    
-   res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: successMessage,
       data: populatedSchedules,
       batchId: batchId, // Yeni: Batch ID döndür
@@ -509,7 +509,7 @@ exports.updateReservationStatus = async (req, res) => {
     const reservation = await Reservation.findByPk(id);
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezervasyon bulunamadı' });
 
-    await reservation.update({ 
+    await reservation.update({
       status,
       approved_by: req.user.id
     });
@@ -559,7 +559,7 @@ exports.exportIcal = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
-    
+
     let schedules = [];
 
     // getMySchedule mantığını kullan
@@ -570,7 +570,7 @@ exports.exportIcal = async (req, res) => {
           where: { studentId: student.id, status: 'enrolled' }
         });
         const sectionIds = enrollments.map(e => e.sectionId);
-        
+
         schedules = await Schedule.findAll({
           where: { section_id: { [Op.in]: sectionIds } },
           include: [
@@ -593,7 +593,7 @@ exports.exportIcal = async (req, res) => {
 
     // iCal formatı oluştur
     const dayMap = { 'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 'Thursday': 'TH', 'Friday': 'FR' };
-    
+
     // Haftanın ilk gününü bul (bugünden itibaren)
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi...
@@ -666,9 +666,9 @@ exports.getResourceUtilization = async (req, res) => {
     // Tüm derslikleri çek
     const classrooms = await Classroom.findAll({
       include: [
-        { 
+        {
           model: Schedule, // Ders programındaki kullanımlar
-          required: false 
+          required: false
         },
         {
           model: Reservation, // Rezervasyonlar
@@ -680,9 +680,10 @@ exports.getResourceUtilization = async (req, res) => {
 
     const report = classrooms.map(room => {
       // Basit bir kullanım puanı hesaplama
-      // Bir haftada toplam slot sayısı (5 gün * 9 saat = 45 slot) varsayalım
-      const totalSlotsPerWeek = 45; 
-      
+      // Bir haftada toplam slot sayısı (5 gün * 5 slot = 25 slot)
+      // generateSchedule fonksiyonundaki timeSlots dizisine göre ayarlandı
+      const totalSlotsPerWeek = 25;
+
       const scheduledSlots = room.Schedules ? room.Schedules.length : 0;
       // Rezervasyonları da kabaca slota çevirelim (her rezervasyon 1 slot sayılsın basitleştirme için)
       const reservationSlots = room.Reservations ? room.Reservations.length : 0;
@@ -721,27 +722,27 @@ exports.getResourceUtilization = async (req, res) => {
 exports.getDraftSchedules = async (req, res) => {
   try {
     const { semester, year } = req.query;
-    
+
     // Batch'lere göre grupla
     const drafts = await Schedule.findAll({
       where: { status: 'draft' },
       include: [
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           include: [
             { model: Course, as: 'course' },
-            { 
-              model: Faculty, 
+            {
+              model: Faculty,
               as: 'instructor',
               include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
             }
           ],
-          ...(semester || year ? { 
-            where: { 
-              ...(semester && { semester }), 
-              ...(year && { year: parseInt(year) }) 
-            } 
+          ...(semester || year ? {
+            where: {
+              ...(semester && { semester }),
+              ...(year && { year: parseInt(year) })
+            }
           } : {})
         },
         { model: Classroom, as: 'classroom' }
@@ -777,8 +778,8 @@ exports.getDraftSchedules = async (req, res) => {
       delete batch.stats.departments;
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: Object.values(batchGroups),
       totalDrafts: drafts.length
     });
@@ -806,9 +807,9 @@ exports.approveSchedule = async (req, res) => {
 
     if (draftSchedules.length === 0) {
       await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Onaylanacak taslak program bulunamadı.' 
+      return res.status(404).json({
+        success: false,
+        message: 'Onaylanacak taslak program bulunamadı.'
       });
     }
 
@@ -822,7 +823,7 @@ exports.approveSchedule = async (req, res) => {
 
     // 3. Draft'ları approved yap
     await Schedule.update(
-      { 
+      {
         status: 'approved',
         approved_by: req.user.id,
         approved_at: new Date()
@@ -852,8 +853,8 @@ exports.approveSchedule = async (req, res) => {
     const approvedSchedules = await Schedule.findAll({
       where: { batch_id: batchId },
       include: [
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           include: [
             { model: Course, as: 'course' },
@@ -865,8 +866,8 @@ exports.approveSchedule = async (req, res) => {
       order: [['day_of_week', 'ASC'], ['start_time', 'ASC']]
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${draftSchedules.length} ders programı başarıyla onaylandı ve aktifleştirildi.`,
       data: approvedSchedules
     });
@@ -895,9 +896,9 @@ exports.rejectSchedule = async (req, res) => {
 
     if (draftSchedules.length === 0) {
       await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Reddedilecek taslak program bulunamadı.' 
+      return res.status(404).json({
+        success: false,
+        message: 'Reddedilecek taslak program bulunamadı.'
       });
     }
 
@@ -909,8 +910,8 @@ exports.rejectSchedule = async (req, res) => {
 
     await t.commit();
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${deletedCount} ders programı taslağı reddedildi ve silindi.`
     });
 
@@ -931,26 +932,26 @@ exports.getActiveSchedules = async (req, res) => {
 
     const whereClause = { status: 'approved' };
     const sectionWhere = {};
-    
+
     if (semester) sectionWhere.semester = semester;
     if (year) sectionWhere.year = parseInt(year);
 
     const schedules = await Schedule.findAll({
       where: whereClause,
       include: [
-        { 
-          model: CourseSection, 
+        {
+          model: CourseSection,
           as: 'section',
           where: Object.keys(sectionWhere).length > 0 ? sectionWhere : undefined,
           include: [
-            { 
-              model: Course, 
+            {
+              model: Course,
               as: 'course',
               where: departmentId ? { departmentId } : undefined,
               include: [{ model: Department, as: 'department' }]
             },
-            { 
-              model: Faculty, 
+            {
+              model: Faculty,
               as: 'instructor',
               include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
             }
@@ -961,8 +962,8 @@ exports.getActiveSchedules = async (req, res) => {
       order: [['day_of_week', 'ASC'], ['start_time', 'ASC']]
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: schedules,
       count: schedules.length
     });

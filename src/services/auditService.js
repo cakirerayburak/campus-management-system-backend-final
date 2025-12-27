@@ -78,6 +78,8 @@ const logLogin = async (userId, req, success = true) => {
     return log({
         userId,
         action: success ? 'login_success' : 'login_failed',
+        entityType: 'User',
+        entityId: userId,
         description: success ? 'Kullanıcı başarıyla giriş yaptı' : 'Başarısız giriş denemesi',
         req,
         metadata: { success }
@@ -91,6 +93,8 @@ const logLogout = async (userId, req) => {
     return log({
         userId,
         action: 'logout',
+        entityType: 'User',
+        entityId: userId,
         description: 'Kullanıcı çıkış yaptı',
         req
     });

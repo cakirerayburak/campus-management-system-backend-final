@@ -12,7 +12,7 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
   const recentAnnouncements = await db.Announcement.findAll({
     limit: 3,
     order: [['created_at', 'DESC']],
-    attributes: ['id', 'title', 'created_at', 'priority']
+    attributes: ['id', 'title', 'createdAt', 'priority']
   });
 
   stats.announcements = recentAnnouncements;
@@ -24,10 +24,10 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
       // GPA ve Kredi
       stats.gpa = student.gpa || 0;
       stats.studentNumber = student.student_number;
-      
+
       // Kayıtlı Ders Sayısı
-      const enrollmentCount = await db.Enrollment.count({ 
-        where: { studentId: student.id, status: 'enrolled' } 
+      const enrollmentCount = await db.Enrollment.count({
+        where: { studentId: student.id, status: 'enrolled' }
       });
       stats.activeCourses = enrollmentCount;
 
