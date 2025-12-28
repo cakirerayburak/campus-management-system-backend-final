@@ -22,12 +22,15 @@ const Wallet = db.Wallet;
 const Cafeteria = db.Cafeteria;
 const MealMenu = db.MealMenu;
 const Event = db.Event;
+const EventRegistration = db.EventRegistration;
+const EventWaitlist = db.EventWaitlist;
 const Schedule = db.Schedule;
 
 // --- PART 4 MODELLERİ ---
 const Notification = db.Notification;
 const NotificationPreference = db.NotificationPreference;
 const AuditLog = db.AuditLog;
+
 
 // SEED FONKSİYONU
 const seedData = async () => {
@@ -350,7 +353,7 @@ const seedData = async () => {
     console.log('Yemekhane ve menüler eklendi...'.green);
 
     // -----------------------------------------------------------------------
-    // 10. ETKİNLİKLER - PART 3
+    // 10. ETKİNLİKLER VE WAITLIST - PART 3 + WAITLIST
     // -----------------------------------------------------------------------
 
     // Gelecek bir tarih
@@ -358,7 +361,7 @@ const seedData = async () => {
     eventDate.setDate(eventDate.getDate() + 10); // 10 gün sonra
     const eventDateStr = eventDate.toISOString().split('T')[0];
 
-    await Event.create({
+    const event1 = await Event.create({
       title: 'Bahar Teknoloji Şenliği',
       description: 'Mühendislik fakültesi bahçesinde teknoloji stantları ve konserler.',
       category: 'Social',
@@ -367,10 +370,11 @@ const seedData = async () => {
       end_time: '18:00',
       location: 'Mühendislik Bahçesi',
       capacity: 500,
-      registered_count: 0
+      registered_count: 0,
+      waitlist_count: 0
     });
 
-    await Event.create({
+    const event2 = await Event.create({
       title: 'Kariyer Zirvesi 2025',
       description: 'Sektörün önde gelen firmaları ile tanışma fırsatı.',
       category: 'Career',
@@ -379,10 +383,89 @@ const seedData = async () => {
       end_time: '17:00',
       location: 'Konferans Salonu A',
       capacity: 200,
-      registered_count: 0
+      registered_count: 0,
+      waitlist_count: 0
+    });
+
+    // ÖNEMLİ: Waitlist testi için sınırlı kapasiteli etkinlik
+    const limitedEvent = await Event.create({
+      title: 'Yapay Zeka Workshop',
+      description: 'Sınırlı kontenjan! ChatGPT ve modern AI araçlarını öğrenin.',
+      category: 'workshop',
+      date: eventDateStr,
+      start_time: '14:00',
+      end_time: '17:00',
+      location: 'B-Blok Lab 3',
+      capacity: 3, // Sadece 3 kişilik (waitlist test için)
+      registered_count: 3, // Dolu!
+      waitlist_count: 2 // 2 kişi bekliyor
     });
 
     console.log('Etkinlikler eklendi...'.green);
+
+    // -----------------------------------------------------------------------
+    // 10.1 ETKİNLİK KAYITLARI (EVENT REGISTRATIONS)
+    // -----------------------------------------------------------------------
+    if (EventRegistration) {
+      // Ali event1'e kayıtlı
+      await EventRegistration.create({
+        event_id: event1.id,
+        user_id: userStu1.id,
+        qr_code: 'EVT-ALI-' + Date.now(),
+        checked_in: false
+      });
+      await event1.increment('registered_count');
+
+      // Ayşe event1'e kayıtlı
+      await EventRegistration.create({
+        event_id: event1.id,
+        user_id: userStu2.id,
+        qr_code: 'EVT-AYSE-' + Date.now(),
+        checked_in: false
+      });
+      await event1.increment('registered_count');
+
+      // Hoca event2'ye kayıtlı
+      await EventRegistration.create({
+        event_id: event2.id,
+        user_id: userFac1.id,
+        qr_code: 'EVT-FAC1-' + Date.now(),
+        checked_in: false
+      });
+      await event2.increment('registered_count');
+
+      console.log('Etkinlik kayıtları eklendi...'.green);
+    }
+
+    // -----------------------------------------------------------------------
+    // 10.2 WAITLIST KAYITLARI (BEKLEME LİSTESİ)
+    // -----------------------------------------------------------------------
+    if (EventWaitlist) {
+      // Ali sınırlı etkinlik için bekleme listesinde (1. sırada)
+      await EventWaitlist.create({
+        event_id: limitedEvent.id,
+        user_id: userStu1.id,
+        position: 1,
+        status: 'waiting',
+        joined_at: new Date()
+      });
+
+      // Ayşe sınırlı etkinlik için bekleme listesinde (2. sırada, bildirilmiş - yer açılmış!)
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 20); // 20 saat kaldı
+      await EventWaitlist.create({
+        event_id: limitedEvent.id,
+        user_id: userStu2.id,
+        position: 2,
+        status: 'notified', // Bir yer açıldı, ona bildirildi!
+        notified_at: new Date(),
+        expires_at: expiresAt,
+        joined_at: new Date(Date.now() - 86400000) // 1 gün önce katıldı
+      });
+
+      console.log('Waitlist (bekleme listesi) kayıtları eklendi...'.green);
+    }
+
 
     // -----------------------------------------------------------------------
     // 11. TEST İÇİN HAZIR KAYIT (ENROLLMENT)

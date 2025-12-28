@@ -14,6 +14,7 @@ module.exports = (sequelize, DataTypes) => {
     location: DataTypes.STRING,
     capacity: DataTypes.INTEGER,
     registered_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+    waitlist_count: { type: DataTypes.INTEGER, defaultValue: 0 },
     is_paid: { type: DataTypes.BOOLEAN, defaultValue: false },
     price: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
     registration_deadline: DataTypes.DATEONLY,
@@ -22,6 +23,7 @@ module.exports = (sequelize, DataTypes) => {
 
   Event.associate = (models) => {
     Event.hasMany(models.EventRegistration, { foreignKey: 'event_id' });
+    Event.hasMany(models.EventWaitlist, { foreignKey: 'event_id' });
   };
 
   return Event;

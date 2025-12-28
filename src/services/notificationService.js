@@ -406,5 +406,122 @@ exports.sendSystemNotification = async (userId, title, message, link = null) => 
   });
 };
 
+// ============== WAITLIST NOTIFICATIONS ==============
+
+/**
+ * Waitlist join confirmation notification
+ */
+exports.sendWaitlistJoinConfirmation = async (user, event, position) => {
+  const title = `Waitlist: ${event.title}`;
+  const message = `You've joined the waitlist for "${event.title}". Your position: #${position}. We'll notify you when a spot becomes available.`;
+
+  await createInAppNotification({
+    userId: user.id,
+    title,
+    message,
+    category: 'event',
+    type: 'info',
+    link: '/my-events'
+  });
+
+  const emailMessage = `
+Hello ${user.name || user.email},
+
+You have joined the waitlist for the event "${event.title}".
+
+Your Waitlist Position: #${position}
+
+Event Details:
+- Date: ${event.date}
+- Time: ${event.start_time} - ${event.end_time}
+- Location: ${event.location}
+
+We'll notify you when a spot becomes available. Please check your notifications regularly.
+
+Best regards!
+  `;
+
+  await sendEmailWithPreferences(user.id, user.email, `Waitlist Confirmation: ${event.title}`, emailMessage, 'event');
+};
+
+/**
+ * Waitlist spot available notification
+ */
+exports.sendWaitlistSpotAvailable = async (user, event, expiresAt) => {
+  const title = `🎉 Spot Available: ${event.title}`;
+  const expiryTime = new Date(expiresAt).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+  const message = `A spot is now available for "${event.title}"! You have until ${expiryTime} to accept. Act fast!`;
+
+  await createInAppNotification({
+    userId: user.id,
+    title,
+    message,
+    category: 'event',
+    type: 'success',
+    link: '/my-events'
+  });
+
+  const emailMessage = `
+Hello ${user.name || user.email},
+
+🎉 GREAT NEWS! A spot has become available for "${event.title}"!
+
+You were on the waitlist and now have the opportunity to register for this event.
+
+⚠️ IMPORTANT: You have until ${expiryTime} to accept this spot.
+If you don't accept in time, the spot will be offered to the next person on the waitlist.
+
+Event Details:
+- Date: ${event.date}
+- Time: ${event.start_time} - ${event.end_time}
+- Location: ${event.location}
+
+To accept your spot, please log in to your account and visit the "My Events" page or click the button below.
+
+[Accept Your Spot]
+
+Don't miss this chance!
+
+Best regards!
+  `;
+
+  await sendEmailWithPreferences(user.id, user.email, `🎉 Spot Available: ${event.title}`, emailMessage, 'event');
+};
+
+/**
+ * Waitlist spot expired notification
+ */
+exports.sendWaitlistExpired = async (user, event) => {
+  const title = `Waitlist Spot Expired: ${event.title}`;
+  const message = `Your waitlist spot for "${event.title}" has expired because you didn't accept in time.`;
+
+  await createInAppNotification({
+    userId: user.id,
+    title,
+    message,
+    category: 'event',
+    type: 'warning',
+    link: '/events'
+  });
+
+  const emailMessage = `
+Hello ${user.name || user.email},
+
+Unfortunately, your waitlist spot for "${event.title}" has expired because you didn't accept within the 24-hour window.
+
+The spot has been offered to the next person on the waitlist.
+
+If you're still interested, you can check if the event has any available spots or join the waitlist again.
+
+Best regards!
+  `;
+
+  await sendEmailWithPreferences(user.id, user.email, `Waitlist Spot Expired: ${event.title}`, emailMessage, 'event');
+};
+
 // Export helper functions
 exports.createInAppNotification = createInAppNotification;
+
