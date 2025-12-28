@@ -21,11 +21,32 @@ module.exports = (sequelize, DataTypes) => {
     },
     gpa: {
       type: DataTypes.FLOAT,
-      defaultValue: 0.0
+      defaultValue: 0.0,
+      comment: 'Cumulative GPA (Genel Not Ortalaması - CGPA)'
+    },
+    cgpa: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0.0,
+      comment: 'Alias for gpa - Cumulative Grade Point Average'
+    },
+    semester_gpa: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0.0,
+      comment: 'Current Semester GPA (Dönem Ortalaması)'
     },
     current_semester: {
       type: DataTypes.INTEGER,
       defaultValue: 1
+    },
+    total_credits_earned: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      comment: 'Total credits successfully completed'
+    },
+    total_ects_earned: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      comment: 'Total ECTS successfully completed'
     },
     is_scholarship: { // Part 3: Yemekhane için eklendi
       type: DataTypes.BOOLEAN,

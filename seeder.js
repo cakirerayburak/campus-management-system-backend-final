@@ -153,6 +153,10 @@ const seedData = async () => {
       departmentId: deptComputer.id,
       student_number: '2021001',
       gpa: 3.50,
+      cgpa: 3.50,
+      semester_gpa: 3.75,
+      total_credits_earned: 45,
+      total_ects_earned: 75,
       current_semester: 3
     });
 
@@ -168,15 +172,39 @@ const seedData = async () => {
       departmentId: deptComputer.id,
       student_number: '2021002',
       gpa: 2.80,
+      cgpa: 2.80,
+      semester_gpa: 3.00,
+      total_credits_earned: 42,
+      total_ects_earned: 70,
       current_semester: 3,
       is_scholarship: true // Ayşe burslu olsun (Yemekhane testi için)
     });
 
     console.log('Kullanıcılar eklendi...'.green);
 
+
     // -----------------------------------------------------------------------
-    // 5. DERSLER (COURSES)
+    // 5. DERSLER (COURSES) - 2 Yıllık Müfredat
     // -----------------------------------------------------------------------
+
+    // === 1. YIL - 1. DÖNEM (Fall 2023) ===
+    const courseCalc1 = await Course.create({
+      code: 'MATH101',
+      name: 'Calculus I (Matematik I)',
+      description: 'Limit, türev ve integral kavramları.',
+      credits: 4,
+      ects: 6,
+      departmentId: deptComputer.id
+    });
+
+    const coursePhysics1 = await Course.create({
+      code: 'PHYS101',
+      name: 'Physics I (Fizik I)',
+      description: 'Mekanik ve termodinamik.',
+      credits: 4,
+      ects: 6,
+      departmentId: deptComputer.id
+    });
 
     const courseAlgo = await Course.create({
       code: 'CENG101',
@@ -185,6 +213,17 @@ const seedData = async () => {
       credits: 4,
       ects: 6,
       departmentId: deptComputer.id
+    });
+
+    // === 1. YIL - 2. DÖNEM (Spring 2024) ===
+    const courseCalc2 = await Course.create({
+      code: 'MATH102',
+      name: 'Calculus II (Matematik II)',
+      description: 'İleri integral ve diferansiyel denklemler.',
+      credits: 4,
+      ects: 6,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseCalc1.id
     });
 
     const courseData = await Course.create({
@@ -197,6 +236,68 @@ const seedData = async () => {
       prerequisiteId: courseAlgo.id
     });
 
+    const courseOOP = await Course.create({
+      code: 'CENG103',
+      name: 'Nesne Yönelimli Programlama',
+      description: 'Java ile OOP prensipleri.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseAlgo.id
+    });
+
+    // === 2. YIL - 1. DÖNEM (Fall 2024) ===
+    const courseDB = await Course.create({
+      code: 'CENG201',
+      name: 'Veritabanı Sistemleri',
+      description: 'SQL, ER diyagramları, normalizasyon.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseData.id
+    });
+
+    const courseOS = await Course.create({
+      code: 'CENG202',
+      name: 'İşletim Sistemleri',
+      description: 'Process, thread, memory management.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseData.id
+    });
+
+    const courseNetwork = await Course.create({
+      code: 'CENG203',
+      name: 'Bilgisayar Ağları',
+      description: 'TCP/IP, OSI modeli, network protocols.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id
+    });
+
+    // === 2. YIL - 2. DÖNEM (Spring 2025 - Aktif Dönem) ===
+    const courseSE = await Course.create({
+      code: 'CENG204',
+      name: 'Yazılım Mühendisliği',
+      description: 'Agile, Scrum, software design patterns.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseOOP.id
+    });
+
+    const courseWeb = await Course.create({
+      code: 'CENG205',
+      name: 'Web Programlama',
+      description: 'HTML, CSS, JavaScript, React, Node.js.',
+      credits: 3,
+      ects: 5,
+      departmentId: deptComputer.id,
+      prerequisiteId: courseOOP.id
+    });
+
+    // Mimarlık dersi (Başka bölüm için)
     const courseArch = await Course.create({
       code: 'ARCH101',
       name: 'Mimari Tasarıma Giriş',
@@ -206,57 +307,166 @@ const seedData = async () => {
       departmentId: deptArchitecture.id
     });
 
-    console.log('Dersler eklendi...'.green);
+    console.log('Dersler eklendi (2 yıllık müfredat)...'.green);
 
     // -----------------------------------------------------------------------
-    // 6. ŞUBELER (SECTIONS) VE ÇİZELGE (SCHEDULE)
+    // 6. ŞUBELER (SECTIONS) VE ÇİZELGE (SCHEDULE) - 4 Dönemlik
     // -----------------------------------------------------------------------
 
-    // CENG101
-    const section1 = await CourseSection.create({
+    // === 1. YIL - 1. DÖNEM (Fall 2023) - GEÇMİŞ ===
+    const sectionCalc1 = await CourseSection.create({
+      courseId: courseCalc1.id,
+      section_number: 1,
+      semester: 'Fall',
+      year: 2023,
+      instructorId: faculty1.id,
+      classroomId: room101.id,
+      capacity: 60,
+      enrolled_count: 2,
+      schedule_json: { day: 'Monday', start: '09:00', room: 'MB-101' }
+    });
+
+    const sectionPhysics1 = await CourseSection.create({
+      courseId: coursePhysics1.id,
+      section_number: 1,
+      semester: 'Fall',
+      year: 2023,
+      instructorId: faculty1.id,
+      classroomId: room101.id,
+      capacity: 60,
+      enrolled_count: 2,
+      schedule_json: { day: 'Tuesday', start: '13:00', room: 'MB-101' }
+    });
+
+    const sectionAlgoFall23 = await CourseSection.create({
       courseId: courseAlgo.id,
       section_number: 1,
-      semester: 'Spring',
-      year: 2025,
+      semester: 'Fall',
+      year: 2023,
       instructorId: faculty1.id,
       classroomId: labComp.id,
       capacity: 30,
-      enrolled_count: 0,
-      schedule_json: { day: 'Monday', start: '09:00', room: 'MB-LAB1' } // Frontend için özet
+      enrolled_count: 2,
+      schedule_json: { day: 'Wednesday', start: '09:00', room: 'MB-LAB1' }
     });
 
-    // CENG101 İçin Schedule Tablosuna Kayıt (Takvimde görünmesi için)
-    await Schedule.create({
-      section_id: section1.id,
-      classroom_id: labComp.id,
-      day_of_week: 'Monday',
-      start_time: '09:00',
-      end_time: '12:00'
+    // === 1. YIL - 2. DÖNEM (Spring 2024) - GEÇMİŞ ===
+    const sectionCalc2 = await CourseSection.create({
+      courseId: courseCalc2.id,
+      section_number: 1,
+      semester: 'Spring',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: room101.id,
+      capacity: 60,
+      enrolled_count: 2,
+      schedule_json: { day: 'Monday', start: '09:00', room: 'MB-101' }
     });
 
-    // CENG102
-    const section2 = await CourseSection.create({
+    const sectionData24 = await CourseSection.create({
       courseId: courseData.id,
+      section_number: 1,
+      semester: 'Spring',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: labComp.id,
+      capacity: 30,
+      enrolled_count: 2,
+      schedule_json: { day: 'Tuesday', start: '09:00', room: 'MB-LAB1' }
+    });
+
+    const sectionOOP24 = await CourseSection.create({
+      courseId: courseOOP.id,
+      section_number: 1,
+      semester: 'Spring',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: labComp.id,
+      capacity: 30,
+      enrolled_count: 2,
+      schedule_json: { day: 'Thursday', start: '13:00', room: 'MB-LAB1' }
+    });
+
+    // === 2. YIL - 1. DÖNEM (Fall 2024) - GEÇMİŞ ===
+    const sectionDB24 = await CourseSection.create({
+      courseId: courseDB.id,
+      section_number: 1,
+      semester: 'Fall',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: labComp.id,
+      capacity: 30,
+      enrolled_count: 2,
+      schedule_json: { day: 'Monday', start: '09:00', room: 'MB-LAB1' }
+    });
+
+    const sectionOS24 = await CourseSection.create({
+      courseId: courseOS.id,
+      section_number: 1,
+      semester: 'Fall',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: room101.id,
+      capacity: 60,
+      enrolled_count: 2,
+      schedule_json: { day: 'Wednesday', start: '13:00', room: 'MB-101' }
+    });
+
+    const sectionNetwork24 = await CourseSection.create({
+      courseId: courseNetwork.id,
+      section_number: 1,
+      semester: 'Fall',
+      year: 2024,
+      instructorId: faculty1.id,
+      classroomId: room101.id,
+      capacity: 60,
+      enrolled_count: 2,
+      schedule_json: { day: 'Friday', start: '09:00', room: 'MB-101' }
+    });
+
+    // === 2. YIL - 2. DÖNEM (Spring 2025) - AKTİF DÖNEM ===
+    const sectionSE25 = await CourseSection.create({
+      courseId: courseSE.id,
       section_number: 1,
       semester: 'Spring',
       year: 2025,
       instructorId: faculty1.id,
       classroomId: room101.id,
       capacity: 60,
-      enrolled_count: 0,
-      schedule_json: { day: 'Wednesday', start: '13:00', room: 'MB-101' }
+      enrolled_count: 2,
+      schedule_json: { day: 'Monday', start: '09:00', room: 'MB-101' }
     });
 
     await Schedule.create({
-      section_id: section2.id,
+      section_id: sectionSE25.id,
       classroom_id: room101.id,
+      day_of_week: 'Monday',
+      start_time: '09:00',
+      end_time: '12:00'
+    });
+
+    const sectionWeb25 = await CourseSection.create({
+      courseId: courseWeb.id,
+      section_number: 1,
+      semester: 'Spring',
+      year: 2025,
+      instructorId: faculty1.id,
+      classroomId: labComp.id,
+      capacity: 30,
+      enrolled_count: 2,
+      schedule_json: { day: 'Wednesday', start: '13:00', room: 'MB-LAB1' }
+    });
+
+    await Schedule.create({
+      section_id: sectionWeb25.id,
+      classroom_id: labComp.id,
       day_of_week: 'Wednesday',
       start_time: '13:00',
       end_time: '16:00'
     });
 
-    // ARCH101
-    const section3 = await CourseSection.create({
+    // ARCH101 (Aktif)
+    const sectionArch = await CourseSection.create({
       courseId: courseArch.id,
       section_number: 1,
       semester: 'Spring',
@@ -269,14 +479,15 @@ const seedData = async () => {
     });
 
     await Schedule.create({
-      section_id: section3.id,
+      section_id: sectionArch.id,
       classroom_id: roomArch.id,
       day_of_week: 'Tuesday',
       start_time: '09:00',
       end_time: '13:00'
     });
 
-    console.log('Şubeler ve programlar eklendi...'.green);
+    console.log('Şubeler eklendi (4 dönemlik)...'.green);
+
 
     // -----------------------------------------------------------------------
     // 7. DUYURULAR
@@ -468,35 +679,250 @@ const seedData = async () => {
 
 
     // -----------------------------------------------------------------------
-    // 11. TEST İÇİN HAZIR KAYIT (ENROLLMENT)
+    // 11. 2. SINIF ÖĞRENCİ SİMÜLASYONU - KAPSAMLI AKADEMİK GEÇMİŞ
     // -----------------------------------------------------------------------
-    const sectionCeng101 = await CourseSection.findOne({ where: { courseId: courseAlgo.id } });
+    console.log('2. sınıf öğrenci simülasyonu başlıyor...'.cyan);
 
-    if (sectionCeng101) {
-      await Enrollment.create({
-        studentId: student1.id,
-        sectionId: sectionCeng101.id,
-        status: 'passed',
-        midterm_grade: 80,
-        final_grade: 90,
-        letter_grade: 'AA',
-        grade_point: 4.0
+    // === ALİ'NİN AKADEMİK GEÇMİŞİ (4 Dönem) ===
+
+    // --- 1. Dönem (Fall 2023) - GEÇMİŞ ---
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionCalc1.id,
+      status: 'passed',
+      midterm_grade: 75,
+      final_grade: 82,
+      letter_grade: 'BB',
+      grade_point: 3.0
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionPhysics1.id,
+      status: 'passed',
+      midterm_grade: 85,
+      final_grade: 88,
+      letter_grade: 'BA',
+      grade_point: 3.5
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionAlgoFall23.id,
+      status: 'passed',
+      midterm_grade: 90,
+      final_grade: 95,
+      letter_grade: 'AA',
+      grade_point: 4.0
+    });
+    console.log('  ✓ 1. Dönem (Fall 2023): 3 ders geçildi'.green);
+
+    // --- 2. Dönem (Spring 2024) - GEÇMİŞ ---
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionCalc2.id,
+      status: 'passed',
+      midterm_grade: 70,
+      final_grade: 78,
+      letter_grade: 'CB',
+      grade_point: 2.5
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionData24.id,
+      status: 'passed',
+      midterm_grade: 88,
+      final_grade: 92,
+      letter_grade: 'AA',
+      grade_point: 4.0
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionOOP24.id,
+      status: 'passed',
+      midterm_grade: 82,
+      final_grade: 85,
+      letter_grade: 'BA',
+      grade_point: 3.5
+    });
+    console.log('  ✓ 2. Dönem (Spring 2024): 3 ders geçildi'.green);
+
+    // --- 3. Dönem (Fall 2024) - GEÇMİŞ ---
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionDB24.id,
+      status: 'passed',
+      midterm_grade: 92,
+      final_grade: 94,
+      letter_grade: 'AA',
+      grade_point: 4.0
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionOS24.id,
+      status: 'passed',
+      midterm_grade: 78,
+      final_grade: 80,
+      letter_grade: 'BB',
+      grade_point: 3.0
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionNetwork24.id,
+      status: 'passed',
+      midterm_grade: 85,
+      final_grade: 90,
+      letter_grade: 'AA',
+      grade_point: 4.0
+    });
+    console.log('  ✓ 3. Dönem (Fall 2024): 3 ders geçildi'.green);
+
+    // --- 4. Dönem (Spring 2025) - AKTİF DÖNEM ---
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionSE25.id,
+      status: 'enrolled',
+      midterm_grade: 88, // Vize notu girilmiş
+      final_grade: null  // Final henüz yok
+    });
+
+    await Enrollment.create({
+      studentId: student1.id,
+      sectionId: sectionWeb25.id,
+      status: 'enrolled',
+      midterm_grade: 92, // Vize notu girilmiş
+      final_grade: null
+    });
+    console.log('  ✓ 4. Dönem (Spring 2025): 2 aktif ders'.yellow);
+
+    // === AYŞE'NİN AKADEMİK GEÇMİŞİ (Daha düşük notlar) ===
+    await Enrollment.create({
+      studentId: student2.id,
+      sectionId: sectionCalc1.id,
+      status: 'passed',
+      midterm_grade: 60,
+      final_grade: 65,
+      letter_grade: 'DC',
+      grade_point: 1.5
+    });
+
+    await Enrollment.create({
+      studentId: student2.id,
+      sectionId: sectionAlgoFall23.id,
+      status: 'passed',
+      midterm_grade: 70,
+      final_grade: 75,
+      letter_grade: 'CB',
+      grade_point: 2.5
+    });
+
+    await Enrollment.create({
+      studentId: student2.id,
+      sectionId: sectionSE25.id,
+      status: 'enrolled',
+      midterm_grade: 75,
+      final_grade: null
+    });
+    console.log('  ✓ Ayşe: 2 geçmiş ders + 1 aktif ders'.green);
+
+    // === YOKLAMA KAYITLARI (AttendanceSession + AttendanceRecord) ===
+    const AttendanceSession = db.AttendanceSession;
+    const AttendanceRecord = db.AttendanceRecord;
+
+    if (AttendanceSession && AttendanceRecord) {
+      // 3 gün önceki tarih
+      const threeDaysAgo = new Date(Date.now() - 86400000 * 3);
+      const yesterday = new Date(Date.now() - 86400000);
+
+      // Yazılım Mühendisliği için yoklama oturumu
+      const session1 = await AttendanceSession.create({
+        sectionId: sectionSE25.id,
+        instructorId: faculty1.id,
+        date: threeDaysAgo.toISOString().split('T')[0], // YYYY-MM-DD
+        start_time: '09:00:00',
+        end_time: '12:00:00',
+        latitude: 41.0255,
+        longitude: 40.5201,
+        geofence_radius: 50,
+        qr_code: 'SE25-' + Date.now(),
+        status: 'closed'
       });
 
-      await sectionCeng101.increment('enrolled_count');
-      console.log('Ali CENG101 dersine kaydedildi ve AA ile geçti.'.yellow);
+      await AttendanceRecord.create({
+        sessionId: session1.id,
+        studentId: student1.id,
+        check_in_time: new Date(threeDaysAgo.getTime() + 600000), // 10 dk sonra
+        latitude: 41.0256,
+        longitude: 40.5202,
+        distance_from_center: 15,
+        is_suspicious: false
+      });
+
+      await AttendanceRecord.create({
+        sessionId: session1.id,
+        studentId: student2.id,
+        check_in_time: new Date(threeDaysAgo.getTime() + 1200000), // 20 dk sonra
+        latitude: 41.0257,
+        longitude: 40.5203,
+        distance_from_center: 25,
+        is_suspicious: false
+      });
+
+      // Web Programlama için yoklama oturumu
+      const session2 = await AttendanceSession.create({
+        sectionId: sectionWeb25.id,
+        instructorId: faculty1.id,
+        date: yesterday.toISOString().split('T')[0],
+        start_time: '13:00:00',
+        end_time: '16:00:00',
+        latitude: 41.0258,
+        longitude: 40.5205,
+        geofence_radius: 50,
+        qr_code: 'WEB25-' + Date.now(),
+        status: 'closed'
+      });
+
+      await AttendanceRecord.create({
+        sessionId: session2.id,
+        studentId: student1.id,
+        check_in_time: new Date(yesterday.getTime() + 300000),
+        latitude: 41.0258,
+        longitude: 40.5206,
+        distance_from_center: 10,
+        is_suspicious: false
+      });
+
+      console.log('  ✓ Yoklama kayıtları eklendi'.green);
     }
 
-    // Ali'nin aktif aldığı ders (CENG102)
-    const sectionCeng102 = await CourseSection.findOne({ where: { courseId: courseData.id } });
-    if (sectionCeng102) {
-      await Enrollment.create({
-        studentId: student1.id,
-        sectionId: sectionCeng102.id,
-        status: 'enrolled'
-      });
-      await sectionCeng102.increment('enrolled_count');
-    }
+
+    // === ÖĞRENCİ İSTATİSTİKLERİNİ GÜNCELLE ===
+    // Ali: 9 ders geçti (toplam 29 kredi, 47 AKTS) + 2 aktif
+    await Student.update({
+      gpa: 3.50,
+      cgpa: 3.50,
+      semester_gpa: 0, // Aktif dönem henüz bitmedi
+      total_credits_earned: 29,
+      total_ects_earned: 47,
+      current_semester: 4
+    }, { where: { id: student1.id } });
+
+    // Ayşe: 2 ders geçti
+    await Student.update({
+      gpa: 2.00,
+      cgpa: 2.00,
+      semester_gpa: 0,
+      total_credits_earned: 8,
+      total_ects_earned: 12,
+      current_semester: 4
+    }, { where: { id: student2.id } });
+
+    console.log('2. sınıf öğrenci simülasyonu tamamlandı!'.cyan.bold);
+
 
     // -----------------------------------------------------------------------
     // 12. BİLDİRİM TERCİHLERİ (NOTIFICATION PREFERENCES) - PART 4

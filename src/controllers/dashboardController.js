@@ -12,7 +12,7 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
   const recentAnnouncements = await db.Announcement.findAll({
     limit: 3,
     order: [['created_at', 'DESC']],
-    attributes: ['id', 'title', 'createdAt', 'priority']
+    attributes: ['id', 'title', 'content', 'createdAt', 'priority']
   });
 
   stats.announcements = recentAnnouncements;
@@ -21,8 +21,13 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
   if (role === 'student') {
     const student = await db.Student.findOne({ where: { userId: req.user.id } });
     if (student) {
-      // GPA ve Kredi
+      // GPA Bilgileri (Yeni: CGPA, Dönem Ortalaması, Kredi/AKTS)
       stats.gpa = student.gpa || 0;
+      stats.cgpa = student.cgpa || student.gpa || 0;
+      stats.semester_gpa = student.semester_gpa || 0;
+      stats.total_credits_earned = student.total_credits_earned || 0;
+      stats.total_ects_earned = student.total_ects_earned || 0;
+      stats.current_semester = student.current_semester || 1;
       stats.studentNumber = student.student_number;
 
       // Kayıtlı Ders Sayısı
@@ -32,7 +37,6 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
       stats.activeCourses = enrollmentCount;
 
       // Toplam Devamsızlık (Flagged olmayan Attendance kayıtları)
-      // Basit bir sayaç: Kaç derse katıldı?
       const attendanceCount = await db.AttendanceRecord.count({
         where: { studentId: student.id }
       });
@@ -48,11 +52,15 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
       });
       stats.activeSections = sectionCount;
 
-      // Toplam Öğrenci Sayısı (Bu hocadan ders alan tekil öğrenci sayısı)
-      // Bu sorgu biraz ağır olabilir, basitçe section kapasitelerini toplayabiliriz veya enrollments sayabiliriz.
-      // Hız için şimdilik kayıtlı enrollment sayısını alalım.
-      // Karmaşık query yerine basit sayı:
-      stats.totalStudents = 0; // İleride eklenebilir
+      // Toplam Öğrenci Sayısı
+      const totalStudents = await db.Enrollment.count({
+        include: [{
+          model: db.CourseSection,
+          as: 'section',
+          where: { instructorId: facultyId }
+        }]
+      });
+      stats.totalStudents = totalStudents;
     }
 
   } else if (role === 'admin') {
@@ -60,6 +68,8 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
     stats.totalUsers = await db.User.count();
     stats.totalCourses = await db.Course.count();
     stats.totalStudents = await db.Student.count();
+    stats.totalFaculty = await db.Faculty.count();
+    stats.totalEvents = await db.Event.count();
   }
 
   res.status(200).json({
